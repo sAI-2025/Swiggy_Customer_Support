@@ -1,0 +1,10 @@
+langgraph
+langchain
+langchain-core
+langchain-groq
+pydantic
+django
+python-dotenv
+langchain-core>=0.3.0
+langchain-openai>=0.2.0
+pillow>=10.0.0
