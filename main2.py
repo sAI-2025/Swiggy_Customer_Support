@@ -9,28 +9,14 @@ Commands (type these instead of a message):
     /state    print the raw internal graph state (debugging)
     /help     show available commands
     /exit     quit the application
-
-IMPORTANT: LangSmith tracing is disabled below, BEFORE any langchain/
-langgraph import. If LANGCHAIN_TRACING_V2 / LANGSMITH_TRACING and an API
-key are present in your .env, LangChain silently tries to POST every LLM
-call to api.smith.langchain.com in a background thread. If that network
-call can't reach LangSmith's servers (firewall/proxy/flaky connection),
-it times out and prints a noisy "Failed to send compressed multipart
-ingest" error to your console. This is NON-FATAL — the chatbot still
-works — but it clutters the terminal and adds latency. Disabling tracing
-here removes the background calls entirely.
 """
 import os
-
-os.environ["LANGCHAIN_TRACING_V2"] = "false"
-os.environ["LANGSMITH_TRACING"] = "false"
+import sys
 
 from graph import build_graph
 from schema import WorkflowState
 
-
-# ---------- Terminal styling ----------
-
+# ---------- Terminal styling (safe on Windows Terminal / VS Code / most shells) ----------
 
 class Color:
     RESET = "\033[0m"
@@ -45,6 +31,7 @@ class Color:
 
 
 def enable_windows_ansi():
+    """Enable ANSI color codes on older Windows terminals."""
     if os.name == "nt":
         os.system("")
 
@@ -65,24 +52,24 @@ def print_assistant(message: str):
 
 
 def print_system(message: str):
-    print(f"{Color.YELLOW}{message}{Color.RESET}")
+    print(f"\n{Color.YELLOW}{message}{Color.RESET}")
 
 
 def print_error(message: str):
     print(f"\n{Color.RED}{Color.BOLD}Error:{Color.RESET} {Color.RED}{message}{Color.RESET}")
 
 
-def print_step(message: str):
-    """Pipeline progress indicator — shown WHILE work is happening, not after."""
-    print(f"{Color.DIM}  -> {message}{Color.RESET}")
-
-
 def print_debug_state(state_values: dict):
     print(f"\n{Color.MAGENTA}{Color.BOLD}--- Internal graph state ---{Color.RESET}")
     keys_to_show = [
-        "rewritten_question", "classifier_result", "router_decision",
-        "image_path", "iteration_count", "validation_error",
-        "metadata", "vlm_result",
+        "rewritten_question",
+        "classifier_result",
+        "router_decision",
+        "image_path",
+        "iteration_count",
+        "validation_error",
+        "metadata",
+        "vlm_result",
     ]
     for key in keys_to_show:
         value = state_values.get(key)
@@ -98,76 +85,47 @@ def print_help():
     print(f"{Color.BLUE}  /exit    Quit the application{Color.RESET}")
 
 
-# ---------- Chat session (FIXED) ----------
-
+# ---------- Chat session ----------
 
 class ChatSession:
     def __init__(self, app):
         self.app = app
         self.thread_id = "live-session-1"
-        self.awaiting_image = False  # local flag, set explicitly
+        self.last_question = None
 
     @property
     def config(self):
         return {"configurable": {"thread_id": self.thread_id}}
 
+    def is_awaiting_image(self) -> bool:
+        try:
+            snapshot = self.app.get_state(self.config)
+            return snapshot.values.get("router_decision") == "ShowInputSelectionToolNode"
+        except Exception:
+            return False
+
     def reset(self):
+        """Clear all checkpointed memory for this session and start fresh."""
         try:
             self.app.checkpointer.delete_thread(self.thread_id)
         except Exception:
             pass
-        self.awaiting_image = False
+        self.last_question = None
         print_system("Started a new conversation. Previous memory cleared.")
 
-    def send(self, user_input: str) -> dict:
-        # --- Branch 1: we just asked for a photo, this input IS the path ---
-        if self.awaiting_image:
-            image_path = user_input.strip()
-            if image_path.startswith('"') and image_path.endswith('"'):
-                image_path = image_path[1:-1]
-
-            print_step(f"Received image path: {image_path}")
-            print_step("Extracting EXIF metadata...")
-            print_step("Sending image to VLM for validation...")
-
-            # Fetch prior state so we don't lose the original claim
-            snapshot = self.app.get_state(self.config)
-            prior = snapshot.values if snapshot else {}
-
-            state = WorkflowState(
-                current_question=prior.get("rewritten_question") or user_input,
-                image_path=image_path,
-            )
-            result = self.app.invoke(state.model_dump(), config=self.config)
-            self.awaiting_image = False
-            return result
-
-        # --- Branch 2: new message — but MUST preserve prior state! ---
-        print_step("Classifying and routing your request...")
-
-        # Fetch the full checkpointed state (history, vlm_result, etc.)
-        snapshot = self.app.get_state(self.config)
-        prior = snapshot.values if snapshot else {}
-
-        # Build the new state by copying prior and only updating the new message
-        state = WorkflowState(
-            current_question=user_input,
-            history=prior.get("history", []),  # Preserve conversation history!
-            # Do NOT reset image_path, vlm_result, metadata — let checkpoint hold them
-        )
+    def send(self, user_input: str):
+        if self.is_awaiting_image() and self.last_question:
+            state = WorkflowState(current_question=self.last_question, image_path=user_input)
+        else:
+            state = WorkflowState(current_question=user_input)
+            self.last_question = user_input
 
         result = self.app.invoke(state.model_dump(), config=self.config)
-
-        # If the graph just asked for a photo, remember the ORIGINAL claim
-        # text and flip the flag so the next input is treated as a path.
-        if result.get("router_decision") == "ShowInputSelectionToolNode":
-            self.awaiting_image = True
-
         return result
 
     def debug_state(self):
         snapshot = self.app.get_state(self.config)
-        print_debug_state(snapshot.values if snapshot else {})
+        print_debug_state(snapshot.values)
 
 
 def run_interactive_chat(app):
@@ -201,6 +159,9 @@ def run_interactive_chat(app):
         if lowered == "/help":
             print_help()
             continue
+
+        if session.is_awaiting_image():
+            print_system("Waiting for an image file path...")
 
         try:
             result = session.send(user_input)

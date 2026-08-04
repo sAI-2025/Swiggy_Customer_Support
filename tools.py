@@ -62,7 +62,7 @@ def run_image_validation(image_path, claim):
     metadata = extract_exif(image_path)
     metadata_found = has_metadata(metadata)
 
-    should_run_vlm = metadata_found or (not STRICT_METADATA_REQUIREMENT)
+    should_run_vlm = metadata_found or ( STRICT_METADATA_REQUIREMENT)
 
     if should_run_vlm:
         vlm_result = vlm_validate(image_path, claim)
