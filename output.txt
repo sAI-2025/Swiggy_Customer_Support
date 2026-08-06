@@ -1,0 +1,94 @@
+(venv) PS C:\Users\chskc\Desktop\Swiggy> python .\main.py
+
+======================================================================
+           SWIGGY-STYLE CUSTOMER SUPPORT ASSISTANT (Prototype)        
+======================================================================
+
+  Type your message naturally, like a real customer.
+  Commands: /new  /state  /help  /exit
+
+You: hi
+  -> Classifying and routing your request...
+
+Assistant: I'm designed to assist with food-delivery customer support such as delivery issues, refunds, payments, cancellations, and order-related questions.
+You: my pizza is completely overburned
+  -> Classifying and routing your request...
+
+Assistant: Please enter file path
+You: c:\Users\chskc\Desktop\Swiggy\bruned_piza.jpg
+  -> Received image path: c:\Users\chskc\Desktop\Swiggy\bruned_piza.jpg
+  -> Extracting EXIF metadata...
+  -> Sending image to VLM for validation...
+
+Assistant: I'm sorry to hear that your pizza was overburned. To assist you further, I need a clearer photo of the overburned pizza. Please take a new photo from a different angle, showing the entire pizza and any packaging. This will help me review your request for a refund or replacement.
+You: I needed refund on them
+  -> Classifying and routing your request...
+
+Assistant: I'm sorry to hear that your pizza was overburned. I've reviewed the latest tool output and it appears that the image you provided is unclear. To assist you further, I need a clearer photo of the overburned pizza from or replacement. Please take a new photo and I'll be happy to assist you with the next steps.
+You: /state
+
+--- Internal graph state ---
+  rewritten_question: I needed a refund on my overburned pizza
+  classifier_result: True
+  router_decision: ResponseGeneratorNode
+  image_path: c:\Users\chskc\Desktop\Swiggy\bruned_piza.jpg
+  iteration_count: 0
+  validation_error: False
+  is_claim_submitted: True
+  metadata: {'status': 'No EXIF data found'}
+  vlm_result: None
+----------------------------
+You: /exit
+Goodbye!
+(venv) PS C:\Users\chskc\Desktop\Swiggy> python .\main.py                                       
+
+======================================================================
+           SWIGGY-STYLE CUSTOMER SUPPORT ASSISTANT (Prototype)        
+======================================================================
+
+  Type your message naturally, like a real customer.
+  Commands: /new  /state  /help  /exit
+
+You: hi
+  -> Classifying and routing your request...
+
+Assistant: I'm designed to assist with food-delivery customer support such as delivery issues, refunds, payments, cancellations, and order-related questions.
+You: my pizza is completely overburned
+  -> Classifying and routing your request...
+
+Assistant: Please enter file path
+You: c:\Users\chskc\Desktop\Swiggy\burned_pizza.jpg
+  -> Received image path: c:\Users\chskc\Desktop\Swiggy\burned_pizza.jpg
+  -> Extracting EXIF metadata...
+  -> Sending image to VLM for validation...
+
+Assistant: I'm sorry to hear that your pizza was overburned. Can you please provide a clearer photo of the overburned pizza so I can review it further? If the image is clear, I can proceed with reviewing your request for a refund or replacement.
+You: 
+You:
+You: 
+You: 
+You: 
+You:
+You: 
+You: 
+You:
+You:
+You:
+You:
+You: 
+You: 
+You: 
+You: /state
+
+--- Internal graph state ---
+  rewritten_question: My pizza is completely overburned, which was delivered by your service.
+  classifier_result: True
+  router_decision: ResponseGeneratorNode
+  image_path: c:\Users\chskc\Desktop\Swiggy\burned_pizza.jpg
+  iteration_count: 3
+  validation_error: True
+  is_claim_submitted: False
+  metadata: {}
+  vlm_result: None
+----------------------------
+You: 

@@ -1,33 +1,25 @@
 """Entry point: interactive Swiggy Support chat application.
 
-Commands:
+Commands (type these instead of a message):
     /new      start a brand-new conversation (clears memory for this session)
     /state    print the raw internal graph state (debugging)
     /help     show available commands
     /exit     quit the application
 
-UI CONTRACT (for a future web/mobile frontend):
-    result["tool_usage"] == "ShowInputSelectionToolNode"
-        -> show image upload widget, DISABLE text input
-    result["tool_usage"] is None
-        -> show normal text chat input
-    (In this terminal prototype, print_step() simulates the "Processing
-    image..." transient state a real UI would show for tool_usage ==
-    "ImageValidationToolNode", which only exists mid-turn and never
-    reaches the UI as a rendered state.)
+REQUIREMENT #4 — AUTO-CLEAR AFTER REFUND:
+After every graph.invoke() call, ChatSession checks result["refund_approved"].
+If True, the refund-confirmation message is shown to the customer FIRST,
+then this thread's SQLite checkpoint is deleted automatically — so the
+very next message starts a completely fresh conversation with no /new
+needed. This matches "after successful refund msg generated, then delete
+the corresponding thread checkpoint" from the requirement.
 
-AUTO-CLEAR ON RESOLUTION:
-    result["conversation_resolved"] == True (refund approved OR claim
-    reviewed-and-rejected) -> after printing final_response, the thread's
-    SQLite checkpoint is deleted automatically. The AI-generated-image
-    loop does NOT resolve the conversation (conversation_resolved stays
-    False) so the user can re-upload within the same session.
-
-STATE CARRY-FORWARD (critical — do not build a bare WorkflowState()):
-    Every new turn fetches the prior checkpoint and explicitly forwards
-    history/tool_usage/is_claim_submitted/etc. LangGraph MERGES the input
-    dict into the checkpoint, so any field left at its Pydantic default
-    would silently overwrite (erase) the real checkpointed value.
+STATE-PERSISTENCE (carried over from earlier fix, still required):
+ChatSession.send() fetches the prior checkpointed state before every new
+turn and explicitly carries forward history/image_path/vlm_result/
+is_claim_submitted/ai_generated_suspected — otherwise a bare
+WorkflowState(current_question=...) would silently overwrite (erase)
+those fields on merge, making the graph "forget" a claim was validated.
 """
 import os
 
@@ -36,6 +28,9 @@ os.environ["LANGSMITH_TRACING"] = "false"
 
 from graph import build_graph
 from schema import WorkflowState
+
+
+# ---------- Terminal styling ----------
 
 
 class Color:
@@ -82,23 +77,17 @@ def print_step(message: str):
     print(f"{Color.DIM}  -> {message}{Color.RESET}")
 
 
-def print_ui_hint(tool_usage: str | None):
-    """Simulates what a real frontend would render based on tool_usage."""
-    if tool_usage == "ShowInputSelectionToolNode":
-        print(f"{Color.BLUE}  [UI] Image upload widget shown. Text input disabled.{Color.RESET}")
-
-
 def print_debug_state(state_values: dict):
     print(f"\n{Color.MAGENTA}{Color.BOLD}--- Internal graph state ---{Color.RESET}")
     keys_to_show = [
         "rewritten_question", "classifier_result", "router_decision",
         "image_path", "iteration_count", "validation_error",
-        "tool_usage", "ai_generated_suspected", "is_claim_submitted",
-        "refund_approved", "conversation_resolved",
+        "is_claim_submitted", "ai_generated_suspected", "refund_approved",
         "metadata", "vlm_result",
     ]
     for key in keys_to_show:
-        print(f"{Color.MAGENTA}  {key}:{Color.RESET} {state_values.get(key)}")
+        value = state_values.get(key)
+        print(f"{Color.MAGENTA}  {key}:{Color.RESET} {value}")
     print(f"{Color.MAGENTA}{Color.BOLD}----------------------------{Color.RESET}")
 
 
@@ -117,10 +106,14 @@ def clean_path(raw: str) -> str:
     return cleaned.strip()
 
 
+# ---------- Chat session ----------
+
+
 class ChatSession:
     def __init__(self, app):
         self.app = app
         self.thread_id = "live-session-1"
+        self.awaiting_image = False
 
     @property
     def config(self):
@@ -135,18 +128,17 @@ class ChatSession:
             self.app.checkpointer.delete_thread(self.thread_id)
         except Exception:
             pass
+        self.awaiting_image = False
         if not silent:
             print_system("Started a new conversation. Previous memory cleared.")
 
     def send(self, user_input: str) -> dict:
         prior = self._get_prior_state()
-        tool_usage = prior.get("tool_usage")
 
-        # --- tool_usage == "ShowInputSelectionToolNode": this input IS the
-        #     image path the bot asked for (Router Rule 1 handles routing;
-        #     we just need to make sure image_path is populated). ---
-        if tool_usage == "ShowInputSelectionToolNode":
+        # --- Branch 1: this input is an image path we asked for ---
+        if self.awaiting_image:
             image_path = clean_path(user_input)
+
             print_step(f"Received image path: {image_path}")
             print_step("Extracting EXIF metadata...")
             print_step("Validating image (DashScope primary, OpenRouter fallback)...")
@@ -155,25 +147,54 @@ class ChatSession:
                 current_question=prior.get("rewritten_question") or user_input,
                 history=prior.get("history", []),
                 image_path=image_path,
-                tool_usage=tool_usage,
                 is_claim_submitted=prior.get("is_claim_submitted", False),
             )
-        else:
-            print_step("Classifying and routing your request...")
-            state = WorkflowState(
-                current_question=user_input,
-                history=prior.get("history", []),
-                image_path=prior.get("image_path"),
-                metadata=prior.get("metadata", {}),
-                vlm_result=prior.get("vlm_result"),
-                tool_usage=tool_usage,
-                ai_generated_suspected=prior.get("ai_generated_suspected", False),
-                is_claim_submitted=prior.get("is_claim_submitted", False),
-                refund_approved=prior.get("refund_approved", False),
-            )
+            result = self.app.invoke(state.model_dump(), config=self.config)
+            self.awaiting_image = False
+            self._handle_post_response(result)
+            return result
+
+        # --- Branch 2: normal new message — preserve prior state ---
+        print_step("Classifying and routing your request...")
+
+        state = WorkflowState(
+            current_question=user_input,
+            history=prior.get("history", []),
+            image_path=prior.get("image_path"),
+            metadata=prior.get("metadata", {}),
+            vlm_result=prior.get("vlm_result"),
+            fake_claim_result=prior.get("fake_claim_result"),
+            is_claim_submitted=prior.get("is_claim_submitted", False),
+            ai_generated_suspected=prior.get("ai_generated_suspected", False),
+        )
 
         result = self.app.invoke(state.model_dump(), config=self.config)
+
+        if result.get("router_decision") == "ShowInputSelectionToolNode":
+            self.awaiting_image = True
+
+        self._handle_post_response(result)
         return result
+
+    def _handle_post_response(self, result: dict):
+        """Requirement #4: auto-clear checkpoint AFTER showing a refund
+        confirmation. The clear happens after this function returns and
+        the caller has already printed result['final_response'] — so the
+        customer sees the message first, then the thread resets silently
+        for the next message."""
+        if result.get("refund_approved"):
+            self._pending_reset = True
+        else:
+            self._pending_reset = False
+
+    def apply_pending_reset_if_needed(self):
+        if getattr(self, "_pending_reset", False):
+            self.reset(silent=True)
+            print_system(
+                "(Refund confirmed — this conversation has been closed and "
+                "memory cleared. Start a new message for a new request.)"
+            )
+            self._pending_reset = False
 
     def debug_state(self):
         print_debug_state(self._get_prior_state())
@@ -218,15 +239,9 @@ def run_interactive_chat(app):
             continue
 
         print_assistant(result.get("final_response") or "(no response generated)")
-        print_ui_hint(result.get("tool_usage"))
 
-        # Auto-clear AFTER the message is shown, per requirement.
-        if result.get("conversation_resolved"):
-            session.reset(silent=True)
-            print_system(
-                "(Conversation resolved — memory cleared automatically. "
-                "Start a new message for a new request.)"
-            )
+        # Requirement #4: clear checkpoint AFTER the message is shown.
+        session.apply_pending_reset_if_needed()
 
 
 def main():

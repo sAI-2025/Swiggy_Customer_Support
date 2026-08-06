@@ -1,36 +1,94 @@
 """LangGraph construction: node registration and routing.
 
-Flow (per Workflow.txt):
-    START -> QuestionRewriterNode -> QuestionClassifierNode
-        off-topic -> OffTopicHandlerNode -> END
-        on-topic  -> ToolRouterNode (DETERMINISTIC, see below)
-            -> ShowInputSelectionToolNode -> END  (asks user for file path)
-            -> ImageValidationToolNode -> ShouldContinueToolExecutionNode
-                error & retries left -> ImageValidationToolNode (retry)
-                otherwise            -> ToolRouterNode
-            -> ResponseGeneratorNode -> END
+============================================================================
+ARCHITECTURE: tool_usage as explicit workflow/UI control signal
+============================================================================
 
-ROUTER DESIGN NOTE:
-ToolRouterNode was originally a pure LLM call, but testing showed a small
-8B model unreliably ignores explicit facts (e.g. picks "ask for image" even
-when an image_path is already present). Routing here only needs 3 simple
-facts already available in state — image_path set? validated already?
-claim implies damage evidence? — so it is now DETERMINISTIC (no LLM call).
-This is cheaper, faster, and fully reproducible for testing. The LLM
-router chain (chains.get_router_chain) is kept available for future,
-genuinely ambiguous multi-tool scenarios.
+State fields and their exact meaning (per approved design spec):
 
-Memory: compiled with MemorySaver checkpointer. Invoking with the same
-thread_id restores prior state (history persists across turns); history is
-stored as HumanMessage/AIMessage via a reducer. IMPORTANT: use a UNIQUE
-thread_id per independent test case — sharing one thread_id across
-unrelated tests leaks state (tool_outputs/history) between them.
+  tool_usage (str | None)
+      None                          -> normal chat mode (UI: text input)
+      "ShowInputSelectionToolNode"  -> bot is waiting for an image upload
+                                        (UI: image widget, text disabled)
+      "ImageValidationToolNode"     -> set the INSTANT validation runs;
+                                        transient within a turn, always
+                                        consumed by ResponseGeneratorNode
+                                        before the turn ends (see note below)
+
+  ai_generated_suspected (bool)     -> DETECTION signal: True only when the
+                                        LAST submitted image had no EXIF.
+                                        Reset to its new value every time
+                                        ImageValidationToolNode runs (never
+                                        needs manual resetting elsewhere).
+
+  is_claim_submitted (bool)         -> True once a NON-suspected image has
+                                        been run through the VLM (validation
+                                        True OR False). Prevents re-asking
+                                        for a photo on later turns.
+
+  refund_approved (bool)            -> True only on VLM validation=True.
+                                        Business outcome flag.
+
+  conversation_resolved (bool)      -> True on BOTH terminal outcomes of the
+                                        image flow (approved AND rejected).
+                                        main.py clears the checkpoint after
+                                        showing the message when this is
+                                        True. False for the AI-generated
+                                        loop (session must stay alive so the
+                                        user can re-upload) and for normal
+                                        chat turns.
+
+----------------------------------------------------------------------------
+WHY NO INFINITE LOOP (the fix over the raw spec):
+----------------------------------------------------------------------------
+The spec's Rule 1 says tool_usage=="ShowInputSelectionToolNode" routes to
+ImageValidationToolNode, and Rule 3 (ai_generated_suspected) also wants to
+end up asking for another image. If ImageValidationToolNode itself ever set
+tool_usage back to "ShowInputSelectionToolNode" directly, a same-turn
+re-route could re-trigger Rule 1 and re-validate the SAME bad image forever.
+
+FIX APPLIED: ImageValidationToolNode ALWAYS sets tool_usage =
+"ImageValidationToolNode" after running (all 3 outcomes). Only
+ResponseGeneratorNode, at the very end of the turn, sets the NEXT turn's
+tool_usage: back to "ShowInputSelectionToolNode" for the ai_generated case
+(so the NEXT user message is treated as a fresh image upload), or None for
+resolved/normal turns. tool_usage therefore only flows strictly forward
+inside a single turn (None/ShowInput -> ImageValidation -> Response), and
+its cross-turn value is only ever set by ResponseGeneratorNode. No cycle
+is possible within one graph.invoke() call.
+----------------------------------------------------------------------------
+
+FULL ROUTING PRIORITY (ToolRouterNode, deterministic, no LLM):
+
+  Rule 1: tool_usage == "ShowInputSelectionToolNode"
+          -> the user's CURRENT message IS the image path they were asked
+             for -> route to ImageValidationToolNode
+
+  Rule 2: tool_usage == "ImageValidationToolNode"
+          -> image validation just ran THIS turn -> route to
+             ResponseGeneratorNode to render the outcome message
+
+  Rule 3: is_claim_submitted == True (evidence already processed, earlier
+          turn, e.g. user now says "please refund me")
+          -> route to ResponseGeneratorNode (no LLM redo of image logic;
+             ResponseGeneratorNode gives a short acknowledgement)
+
+  Rule 4: needs_image_evidence(rewritten_question) and image_path is None
+          -> route to ShowInputSelectionToolNode (ask for photo)
+
+  Rule 5: image_path is not None (edge case: image supplied same turn as
+          the claim, e.g. programmatic/API caller) -> ImageValidationToolNode
+
+  Rule 6: default -> ResponseGeneratorNode (normal chat)
+
+============================================================================
 """
 import operator
+import sqlite3
 from typing import Annotated, Literal, Optional, TypedDict
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
-from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
 
 from chains import get_classifier_chain, get_response_chain, get_rewriter_chain
@@ -38,15 +96,42 @@ from schema import RouteEnum
 from tools import run_image_validation
 
 MAX_TOOL_ITERATIONS = 3
+BOT_NAME = "Swiggy Support"
+SQLITE_DB_PATH = "swiggy_support.sqlite"
 
 OFF_TOPIC_MESSAGE = (
-    "I'm designed to assist with food-delivery customer support such as "
-    "delivery issues, refunds, payments, cancellations, and order-related questions."
+    f"{BOT_NAME}: I'm designed to assist with food-delivery customer support "
+    "such as delivery issues, refunds, payments, cancellations, and "
+    "order-related questions."
 )
 
-SHOW_INPUT_MESSAGE = "Please enter file path"
+SHOW_INPUT_MESSAGE = f"{BOT_NAME}: Please enter file path"
 
-# Keywords that imply the customer needs to submit photo evidence.
+# --- FIXED (non-LLM) terminal messages for the image-evidence flow ---
+
+AI_GENERATED_MESSAGE = (
+    f"{BOT_NAME}: Please upload the original image on the product. "
+    "It looks like an AI-generated one."
+)
+
+REFUND_APPROVED_TEMPLATE = (
+    f"{BOT_NAME}: We're sorry about your {{item}}. Refund/replacement will "
+    "be processed within 24 hours. Our customer care will contact you via "
+    "telephone."
+)
+
+CLAIM_REJECTED_MESSAGE = (
+    f"{BOT_NAME}: We've reviewed the image you shared, but it doesn't "
+    "clearly show the issue you described. Our support team will manually "
+    "review your request and get back to you shortly."
+)
+
+VALIDATION_GAVE_UP_MESSAGE = (
+    f"{BOT_NAME}: We're having trouble processing that image right now. "
+    "Please try uploading it again in a moment, or describe the issue in "
+    "more detail and our team will assist you manually."
+)
+
 IMAGE_NEED_KEYWORDS = [
     "damaged", "burnt", "burned", "spilled", "spoiled", "broken", "crushed",
     "wrong item", "missing item", "rotten", "moldy", "leaked", "torn",
@@ -57,6 +142,15 @@ IMAGE_NEED_KEYWORDS = [
 def needs_image_evidence(question: str) -> bool:
     q = (question or "").lower()
     return any(k in q for k in IMAGE_NEED_KEYWORDS)
+
+
+def _extract_item_name(question: str) -> str:
+    """Best-effort item name for the refund template; falls back to 'order'."""
+    q = (question or "").lower()
+    for word in ["pizza", "burger", "biryani", "drink", "cake", "sandwich", "meal", "order"]:
+        if word in q:
+            return word
+    return "order"
 
 
 # ---------- Graph state ----------
@@ -76,6 +170,12 @@ class GraphState(TypedDict, total=False):
     iteration_count: int
     tool_outputs: Annotated[list, operator.add]
     final_response: Optional[str]
+
+    tool_usage: Optional[str]
+    ai_generated_suspected: bool
+    is_claim_submitted: bool
+    refund_approved: bool
+    conversation_resolved: bool
 
 
 def _history_as_text(history: list) -> str:
@@ -106,9 +206,7 @@ def question_rewriter_node(state: GraphState) -> dict:
 
 def question_classifier_node(state: GraphState) -> dict:
     try:
-        result = get_classifier_chain().invoke({
-            "question": state["rewritten_question"],
-        })
+        result = get_classifier_chain().invoke({"question": state["rewritten_question"]})
         return {"classifier_result": result.is_related}
     except Exception:
         q = (state["rewritten_question"] or "").lower()
@@ -134,31 +232,35 @@ def off_topic_handler_node(state: GraphState) -> dict:
     }
 
 
-# ---------- Node 4: ToolRouterNode (DETERMINISTIC — see module docstring) ----------
+# ---------- Node 4: ToolRouterNode (DETERMINISTIC, priority order per spec) ----------
 
 
 def tool_router_node(state: GraphState) -> dict:
+    tool_usage = state.get("tool_usage")
+    is_claim_submitted = state.get("is_claim_submitted", False)
     image_path = state.get("image_path")
-    vlm_result = state.get("vlm_result")
-    validation_error = state.get("validation_error", False)
-    iteration_count = state.get("iteration_count", 0)
 
-    # Rule 1: validation already completed successfully -> answer now.
-    if vlm_result is not None:
-        return {"router_decision": RouteEnum.RESPONSE_GENERATOR.value}
-
-    # Rule 2: an image path exists but hasn't been validated yet.
-    if image_path:
-        # Give up after MAX_TOOL_ITERATIONS failed attempts -> explain to user.
-        if validation_error and iteration_count >= MAX_TOOL_ITERATIONS:
-            return {"router_decision": RouteEnum.RESPONSE_GENERATOR.value}
+    # Rule 1: bot previously asked for a photo -> THIS message is the path.
+    if tool_usage == "ShowInputSelectionToolNode":
         return {"router_decision": RouteEnum.IMAGE_VALIDATION.value}
 
-    # Rule 3: claim implies damage/quality evidence but no image supplied yet.
-    if needs_image_evidence(state["rewritten_question"]):
+    # Rule 2: validation just ran this turn -> render the outcome.
+    if tool_usage == "ImageValidationToolNode":
+        return {"router_decision": RouteEnum.RESPONSE_GENERATOR.value}
+
+    # Rule 3: evidence already processed in an earlier turn -> answer.
+    if is_claim_submitted:
+        return {"router_decision": RouteEnum.RESPONSE_GENERATOR.value}
+
+    # Rule 4: claim needs evidence, none supplied yet -> ask for it.
+    if needs_image_evidence(state["rewritten_question"]) and not image_path:
         return {"router_decision": RouteEnum.SHOW_INPUT.value}
 
-    # Rule 4: nothing image-related -> answer directly.
+    # Rule 5: image already present this turn (edge case) -> validate.
+    if image_path:
+        return {"router_decision": RouteEnum.IMAGE_VALIDATION.value}
+
+    # Rule 6: normal chat.
     return {"router_decision": RouteEnum.RESPONSE_GENERATOR.value}
 
 
@@ -173,6 +275,7 @@ def show_input_selection_node(state: GraphState) -> dict:
     return {
         "final_response": SHOW_INPUT_MESSAGE,
         "tool_outputs": [SHOW_INPUT_MESSAGE],
+        "tool_usage": "ShowInputSelectionToolNode",
         "history": [
             HumanMessage(content=state["current_question"]),
             AIMessage(content=SHOW_INPUT_MESSAGE),
@@ -186,17 +289,49 @@ def show_input_selection_node(state: GraphState) -> dict:
 def image_validation_node(state: GraphState) -> dict:
     claim = state["rewritten_question"]
     image_path = state.get("image_path")
+
     try:
         if not image_path:
             raise ValueError("No image path provided")
+
         result = run_image_validation(image_path, claim)
-        return {
+        outcome = result["outcome"]  # "ai_generated" | "approved" | "rejected"
+
+        # tool_usage ALWAYS becomes "ImageValidationToolNode" here — never
+        # "ShowInputSelectionToolNode" directly (see module docstring: this
+        # is what prevents the infinite-loop failure mode).
+        base_update = {
             "metadata": result["metadata"],
-            "vlm_result": result["vlm_result"],
-            "fake_claim_result": result["fake_claim_result"],
-            "validation_error": False,
+            "vlm_result": str(result["vlm_result"]) if result["vlm_result"] else None,
             "tool_outputs": [str(result["output"])],
+            "validation_error": False,
+            "tool_usage": "ImageValidationToolNode",
         }
+
+        if outcome == "ai_generated":
+            return {
+                **base_update,
+                "ai_generated_suspected": True,
+                "is_claim_submitted": False,
+                "refund_approved": False,
+            }
+
+        if outcome == "approved":
+            return {
+                **base_update,
+                "ai_generated_suspected": False,
+                "is_claim_submitted": True,
+                "refund_approved": True,
+            }
+
+        # outcome == "rejected"
+        return {
+            **base_update,
+            "ai_generated_suspected": False,
+            "is_claim_submitted": True,
+            "refund_approved": False,
+        }
+
     except Exception as exc:
         return {
             "validation_error": True,
@@ -211,9 +346,7 @@ def should_continue_node(state: GraphState) -> dict:
     return {"iteration_count": state.get("iteration_count", 0) + 1}
 
 
-def route_should_continue(state: GraphState) -> Literal[
-    "ImageValidationToolNode", "ToolRouterNode"
-]:
+def route_should_continue(state: GraphState) -> Literal["ImageValidationToolNode", "ToolRouterNode"]:
     if state.get("validation_error") and state.get("iteration_count", 0) < MAX_TOOL_ITERATIONS:
         return "ImageValidationToolNode"
     return "ToolRouterNode"
@@ -223,17 +356,91 @@ def route_should_continue(state: GraphState) -> Literal[
 
 
 def response_generator_node(state: GraphState) -> dict:
-    tool_outputs = state.get("tool_outputs") or []
+    # --- Outcome A: AI-generated suspected -> fixed message, no LLM.
+    #     Reset tool_usage to "ShowInputSelectionToolNode" for the NEXT
+    #     turn so the user's next message is treated as a fresh upload.
+    #     Session stays ALIVE (conversation_resolved=False).
+    if state.get("ai_generated_suspected"):
+        return {
+            "final_response": AI_GENERATED_MESSAGE,
+            "tool_usage": "ShowInputSelectionToolNode",
+            "ai_generated_suspected": False,  # consumed; fresh detection next upload
+            "conversation_resolved": False,
+            "history": [
+                HumanMessage(content=state["current_question"]),
+                AIMessage(content=AI_GENERATED_MESSAGE),
+            ],
+        }
+
+    # --- Outcome B: refund approved -> fixed message, no LLM.
+    #     Session RESOLVED -> main.py clears checkpoint after showing this.
+    if state.get("refund_approved"):
+        item = _extract_item_name(state.get("rewritten_question", ""))
+        message = REFUND_APPROVED_TEMPLATE.format(item=item)
+        return {
+            "final_response": message,
+            "tool_usage": None,
+            "conversation_resolved": True,
+            "history": [
+                HumanMessage(content=state["current_question"]),
+                AIMessage(content=message),
+            ],
+        }
+
+    # --- Outcome C: claim reviewed but image didn't support it ->
+    #     fixed message, no LLM. Session RESOLVED (evidence was processed;
+    #     don't loop back asking for more photos automatically).
+    if state.get("is_claim_submitted") and state.get("tool_usage") == "ImageValidationToolNode":
+        return {
+            "final_response": CLAIM_REJECTED_MESSAGE,
+            "tool_usage": None,
+            "conversation_resolved": True,
+            "history": [
+                HumanMessage(content=state["current_question"]),
+                AIMessage(content=CLAIM_REJECTED_MESSAGE),
+            ],
+        }
+
+    # --- Outcome D: validation kept failing (bad path etc.) after retries.
+    if state.get("validation_error"):
+        return {
+            "final_response": VALIDATION_GAVE_UP_MESSAGE,
+            "tool_usage": None,
+            "conversation_resolved": False,
+            "history": [
+                HumanMessage(content=state["current_question"]),
+                AIMessage(content=VALIDATION_GAVE_UP_MESSAGE),
+            ],
+        }
+
+    # --- Outcome E: is_claim_submitted True from an EARLIER turn (e.g.
+    #     user follows up with "please refund me" after already being
+    #     resolved in a prior turn that somehow didn't clear — safety net).
+    if state.get("is_claim_submitted"):
+        message = f"{BOT_NAME}: Your request is already being reviewed by our team. We'll update you shortly."
+        return {
+            "final_response": message,
+            "tool_usage": None,
+            "conversation_resolved": True,
+            "history": [
+                HumanMessage(content=state["current_question"]),
+                AIMessage(content=message),
+            ],
+        }
+
+    # --- Outcome F: normal generic chat -> LLM-generated response. ---
     result = get_response_chain().invoke({
         "history": _history_as_text(state.get("history", [])),
         "question": state["rewritten_question"],
-        "tool_output": tool_outputs[-1] if tool_outputs else "No tool output available",
     })
+    final_text = f"{BOT_NAME}: {result.final_answer}"
     return {
-        "final_response": result.final_answer,
+        "final_response": final_text,
+        "tool_usage": None,
+        "conversation_resolved": False,
         "history": [
             HumanMessage(content=state["current_question"]),
-            AIMessage(content=result.final_answer),
+            AIMessage(content=final_text),
         ],
     }
 
@@ -259,10 +466,7 @@ def build_graph():
     graph.add_conditional_edges(
         "QuestionClassifierNode",
         lambda s: "ToolRouterNode" if s["classifier_result"] else "OffTopicHandlerNode",
-        {
-            "ToolRouterNode": "ToolRouterNode",
-            "OffTopicHandlerNode": "OffTopicHandlerNode",
-        },
+        {"ToolRouterNode": "ToolRouterNode", "OffTopicHandlerNode": "OffTopicHandlerNode"},
     )
 
     graph.add_conditional_edges(
@@ -281,14 +485,13 @@ def build_graph():
     graph.add_conditional_edges(
         "ShouldContinueToolExecutionNode",
         route_should_continue,
-        {
-            "ImageValidationToolNode": "ImageValidationToolNode",
-            "ToolRouterNode": "ToolRouterNode",
-        },
+        {"ImageValidationToolNode": "ImageValidationToolNode", "ToolRouterNode": "ToolRouterNode"},
     )
 
     graph.add_edge("OffTopicHandlerNode", END)
     graph.add_edge("ResponseGeneratorNode", END)
 
-    memory = MemorySaver()
-    return graph.compile(checkpointer=memory)
+    conn = sqlite3.connect(SQLITE_DB_PATH, check_same_thread=False)
+    checkpointer = SqliteSaver(conn)
+
+    return graph.compile(checkpointer=checkpointer)
