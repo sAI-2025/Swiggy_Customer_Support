@@ -1,3 +1,5 @@
+```mermaid
+
 flowchart TD
     %% ================= ENTRY =================
     START(["START"]) --> QR
@@ -58,3 +60,4 @@ flowchart TD
     class QR,TR,SIS,OT,RG node;
     class QC,MD,SC decision;
     class IV,VLM,FCD component;
+```
