@@ -1,7 +1,7 @@
 (venv) PS C:\Users\chskc\Desktop\Swiggy> python .\main.py
 
 ======================================================================
-           SWIGGY-STYLE CUSTOMER SUPPORT ASSISTANT (Prototype)        
+           SWIGGY-STYLE CUSTOMER SUPPORT ASSISTANT (Prototype)
 ======================================================================
 
   Type your message naturally, like a real customer.
@@ -40,10 +40,10 @@ You: /state
 ----------------------------
 You: /exit
 Goodbye!
-(venv) PS C:\Users\chskc\Desktop\Swiggy> python .\main.py                                       
+(venv) PS C:\Users\chskc\Desktop\Swiggy> python .\main.py
 
 ======================================================================
-           SWIGGY-STYLE CUSTOMER SUPPORT ASSISTANT (Prototype)        
+           SWIGGY-STYLE CUSTOMER SUPPORT ASSISTANT (Prototype)
 ======================================================================
 
   Type your message naturally, like a real customer.
@@ -63,21 +63,21 @@ You: c:\Users\chskc\Desktop\Swiggy\burned_pizza.jpg
   -> Sending image to VLM for validation...
 
 Assistant: I'm sorry to hear that your pizza was overburned. Can you please provide a clearer photo of the overburned pizza so I can review it further? If the image is clear, I can proceed with reviewing your request for a refund or replacement.
-You: 
-You:
-You: 
-You: 
-You: 
-You:
-You: 
-You: 
 You:
 You:
 You:
 You:
-You: 
-You: 
-You: 
+You:
+You:
+You:
+You:
+You:
+You:
+You:
+You:
+You:
+You:
+You:
 You: /state
 
 --- Internal graph state ---
@@ -91,4 +91,32 @@ You: /state
   metadata: {}
   vlm_result: None
 ----------------------------
-You: 
+(venv) PS C:\Users\chskc\Desktop\Swiggy> sqlite3 C:\Users\chskc\Desktop\Swiggy\swiggy_support.sqlite
+SQLite version 3.49.2 2025-05-07 10:39:52
+Enter ".help" for usage hints.
+sqlite> .tables
+checkpoints  writes
+sqlite> .schema checkpoints
+CREATE TABLE checkpoints (
+                thread_id TEXT NOT NULL,
+                checkpoint_ns TEXT NOT NULL DEFAULT '',
+                checkpoint_id TEXT NOT NULL,
+                parent_checkpoint_id TEXT,
+                type TEXT,
+                checkpoint BLOB,
+                metadata BLOB,
+                PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id)
+            );
+sqlite> .headers on
+sqlite> .mode column
+sqlite>
+sqlite> SELECT thread_id, checkpoint_id, parent_checkpoint_id, type
+   ...> FROM checkpoints;
+thread_id       checkpoint_id                         parent_checkpoint_id                  type
+--------------  ------------------------------------  ------------------------------------  -------
+live-session-1  1f1916b4-d505-6b56-bfff-7c01172c0a12                                        msgpack
+live-session-1  1f1916b4-d509-653d-8000-d560202a6cc2  1f1916b4-d505-6b56-bfff-7c01172c0a12  msgpack
+live-session-1  1f1916b4-dc41-6a77-8001-6434f45203da  1f1916b4-d509-653d-8000-d560202a6cc2  msgpack
+live-session-1  1f1916b4-e51b-6071-8002-18f092bd0d3c  1f1916b4-dc41-6a77-8001-6434f45203da  msgpack
+live-session-1  1f1916b4-e51b-6e95-8003-f42abe9d6087  1f1916b4-e51b-6071-8002-18f092bd0d3c  msgpack
+sqlite>
