@@ -1,0 +1,211 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Swiggy Clone</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}" />
+  </head>
+  <body>
+    <!-- HEADER -->
+    <header class="navbar">
+      <div class="logo">
+        <span class="logo-badge">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="#ff5200">
+            <path
+              d="M12 2C7.6 2 4 5.6 4 10c0 5.2 6.8 11 7.1 11.3.5.4 1.3.4 1.8 0C13.2 21 20 15.2 20 10c0-4.4-3.6-8-8-8zm0 3.2c1.2 0 2.1 1.8 1.1 2.7L11 10l2.1 2.1c1 .9.1 2.7-1.1 2.7-.3 0-.6-.1-.8-.3l-3-3c-.5-.5-.5-1.2 0-1.7l3-3c.2-.2.5-.3.8-.3z"
+            />
+          </svg>
+        </span>
+        <span class="logo-text">Swiggy</span>
+      </div>
+      <nav>
+        <a href="#">Swiggy Corporate</a>
+        <a href="#">Partner with us</a>
+        <button class="btn-outline">
+          Get the App <span class="arrow">↗</span>
+        </button>
+        <button class="btn-dark">Sign in</button>
+      </nav>
+    </header>
+
+    <!-- HERO (main_banner.png placed directly) -->
+    <section class="hero-image">
+      <img
+        class="showcase-img"
+        src="{% static 'images/main_banner.png' %}"
+        alt="Order food & groceries. Discover best restaurants. Swiggy it!"
+      />
+    </section>
+
+    <!-- Functional search bar (image above is visual only, this is the real working search) -->
+    <section class="search-section">
+      <div class="search-bar">
+        <input type="text" placeholder="Enter your delivery location" />
+        <input type="text" placeholder="Search for restaurant, item or more" />
+        <button>🔍</button>
+      </div>
+    </section>
+
+    <!-- FOOD CATEGORIES + INSTAMART (items.png placed directly) -->
+    <section class="section">
+      <img
+        class="showcase-img"
+        src="{% static 'images/items.png' %}"
+        alt="Order food and shop groceries on Instamart"
+      />
+    </section>
+
+    <!-- DINEOUT RESTAURANTS (restaruents.png placed directly) -->
+    <section class="section">
+      <img
+        class="showcase-img"
+        src="{% static 'images/restaruents.png' %}"
+        alt="Discover best restaurants on Dineout"
+      />
+    </section>
+
+    <!-- APP BANNER (App_download_banner.avif placed directly) -->
+    <section class="app-banner">
+      <img
+        class="showcase-img app-banner-img"
+        src="{% static 'images/App_download_banner.avif' %}"
+        alt="Get the Swiggy App now! Scan to download."
+      />
+      <button class="btn-dark app-download-btn">Download App</button>
+    </section>
+
+    <!-- CITIES WITH FOOD DELIVERY -->
+    <section class="cities-section">
+      <h2>Cities with food delivery</h2>
+      <div class="cities-grid">
+        <a href="#" class="city-pill">Order food online in Bangalore</a>
+        <a href="#" class="city-pill">Order food online in Gurgaon</a>
+        <a href="#" class="city-pill">Order food online in Hyderabad</a>
+        <a href="#" class="city-pill">Order food online in Delhi</a>
+        <a href="#" class="city-pill">Order food online in Mumbai</a>
+        <a href="#" class="city-pill">Order food online in Pune</a>
+        <a href="#" class="city-pill">Order food online in Kolkata</a>
+        <a href="#" class="city-pill">Order food online in Chennai</a>
+        <a href="#" class="city-pill">Order food online in Ahmedabad</a>
+        <a href="#" class="city-pill">Order food online in Chandigarh</a>
+        <a href="#" class="city-pill">Order food online in Jaipur</a>
+        <button type="button" class="city-pill show-more">
+          Show More <span class="chevron">⌄</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="site-footer">
+      <div class="footer-top">
+        <div class="footer-col footer-brand">
+          <p>&copy; 2026 Swiggy Limited</p>
+        </div>
+
+        <div class="footer-col">
+          <h4>Company</h4>
+          <a href="#">About Us</a>
+          <a href="#">Swiggy Corporate</a>
+          <a href="#">Careers</a>
+          <a href="#">Team</a>
+          <a href="#">Swiggy One</a>
+          <a href="#">Swiggy Instamart</a>
+        </div>
+
+        <div class="footer-col">
+          <h4>Contact us</h4>
+          <a href="#">Help &amp; Support</a>
+          <a href="#">Partner With Us</a>
+          <a href="#">Ride With Us</a>
+          <h4 class="footer-subhead">Legal</h4>
+          <a href="#">Terms &amp; Conditions</a>
+          <a href="#">Cookie Policy</a>
+          <a href="#">Privacy Policy</a>
+        </div>
+
+        <div class="footer-col">
+          <h4>Available in:</h4>
+          <a href="#">Bangalore</a>
+          <a href="#">Gurgaon</a>
+          <a href="#">Hyderabad</a>
+          <a href="#">Delhi</a>
+          <a href="#">Mumbai</a>
+          <a href="#">Pune</a>
+          <select class="cities-dropdown">
+            <option>685 cities</option>
+          </select>
+        </div>
+
+        <div class="footer-col">
+          <h4>Life at Swiggy</h4>
+          <a href="#">Explore With Swiggy</a>
+          <a href="#">Swiggy News</a>
+          <a href="#">Snackables</a>
+          <h4 class="footer-subhead">Social Links</h4>
+        </div>
+      </div>
+
+      <hr class="footer-divider" />
+
+      <div class="footer-bottom">
+        <p>For better experience, download the Swiggy app now</p>
+        <div class="store-badges">
+          <a href="#" class="store-badge">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff">
+              <path
+                d="M18.7 12.2c0-2.4 2-3.6 2.1-3.7-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.6.9-.7 0-1.9-.9-3.1-.8-1.6 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.7 3-.7s1.8.7 3 .7c1.3 0 2-1.1 2.8-2.3.9-1.3 1.3-2.5 1.3-2.6-.1 0-2.3-.9-2.3-3.5zM16.5 4.8c.7-.8 1.1-1.9 1-3-1 0-2.1.6-2.8 1.4-.6.7-1.1 1.8-1 2.9 1.1.1 2.1-.5 2.8-1.3z"
+              />
+            </svg>
+            <span>Download on the<strong>App Store</strong></span>
+          </a>
+          <a href="#" class="store-badge">
+            <svg width="18" height="18" viewBox="0 0 24 24">
+              <path fill="#00d2ff" d="M3 3.5v17l9-8.5z" />
+              <path fill="#ffe000" d="M16 10.5l3.5 2L16 14.5 12 12z" />
+              <path fill="#ff3b30" d="M3 3.5l13 9-3.5 2z" />
+              <path fill="#00e676" d="M3 20.5l13-9-3.5-2z" />
+            </svg>
+            <span>GET IT ON<strong>Google Play</strong></span>
+          </a>
+        </div>
+      </div>
+    </footer>
+
+    <!-- ===== CHAT WIDGET ===== -->
+    <div id="chat-toggle-btn">
+      <span id="chat-toggle-icon">💬</span>
+    </div>
+
+    <div id="chat-window">
+      <div class="chat-header">
+        <div class="chat-header-info">
+          <span class="chat-avatar">🛵</span>
+          <div>
+            <span class="chat-title">Swiggy Support</span>
+            <span class="chat-subtitle">● Online</span>
+          </div>
+        </div>
+        <button id="chat-close" type="button">✕</button>
+      </div>
+
+      <div class="chat-body" id="chat-body">
+        <!-- messages + upload widget injected here by chat.js -->
+      </div>
+
+      <form id="chat-form" class="chat-input-row">
+        {% csrf_token %}
+        <input
+          type="text"
+          id="chat-input"
+          placeholder="Type a message..."
+          autocomplete="off"
+        />
+        <button type="submit" id="chat-send-btn">➤</button>
+      </form>
+    </div>
+
+    <script src="{% static 'js/chat.js' %}"></script>
+  </body>
+</html>
