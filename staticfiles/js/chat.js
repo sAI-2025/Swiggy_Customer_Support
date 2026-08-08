@@ -1,4 +1,4 @@
-document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", () => {
   const toggleBtn = document.getElementById("chat-toggle-btn");
   const chatWindow = document.getElementById("chat-window");
   const closeBtn = document.getElementById("chat-close");
@@ -7,249 +7,253 @@ document.addEventListener("DOMContentLoaded", function () {
   const chatInput = document.getElementById("chat-input");
   const sendBtn = document.getElementById("chat-send-btn");
 
-  const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-  const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+  const SEND_URL = "/chat/send/";
+  const HISTORY_URL = "/chat/history/";
+  const UPLOAD_NODE = "ShowInputSelectionToolNode";
+  const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+  const MAX_SIZE = 5 * 1024 * 1024;
 
-  let awaitingUpload = false; // true while the upload widget is open in chat-body
+  let awaitingUpload = false;
 
   function getCookie(name) {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop().split(";").shift();
-    return null;
-  }
-  const csrftoken = getCookie("csrftoken");
-
-  function escapeHtml(str) {
-    const d = document.createElement("div");
-    d.innerText = str || "";
-    return d.innerHTML;
+    const cookies = `; ${document.cookie}`;
+    const parts = cookies.split(`; ${name}=`);
+    return parts.length === 2 ? parts.pop().split(";").shift() : null;
   }
 
-  function appendMessage(sender, message, time, imageUrl) {
-    const div = document.createElement("div");
-    div.className = "chat-msg " + sender;
+  const csrfToken = getCookie("csrftoken");
+
+  function escapeHtml(value) {
+    const element = document.createElement("div");
+    element.textContent = value || "";
+    return element.innerHTML;
+  }
+
+  function appendMessage(sender, message = "", time = "", imageUrl = null) {
+    const element = document.createElement("div");
+    element.className = `chat-msg ${sender}`;
+
     let html = "";
     if (imageUrl) {
-      html += `<img class="chat-msg-img" src="${imageUrl}" alt="Sent image">`;
+      html += `<img class="chat-msg-img" src="${imageUrl}" alt="Uploaded image" loading="lazy">`;
     }
-    if (message) {
-      html += escapeHtml(message);
-    }
-    html += `<div class="chat-time">${time || ""}</div>`;
-    div.innerHTML = html;
-    chatBody.appendChild(div);
+    if (message) html += escapeHtml(message);
+    if (time) html += `<div class="chat-time">${escapeHtml(time)}</div>`;
+
+    element.innerHTML = html;
+    chatBody.appendChild(element);
     chatBody.scrollTop = chatBody.scrollHeight;
   }
 
   function showTyping() {
-    const div = document.createElement("div");
-    div.className = "chat-typing";
-    div.id = "chat-typing-indicator";
-    div.innerHTML = "<span></span><span></span><span></span>";
-    chatBody.appendChild(div);
+    hideTyping();
+    const element = document.createElement("div");
+    element.id = "chat-typing-indicator";
+    element.className = "chat-typing";
+    element.innerHTML = "<span></span><span></span><span></span>";
+    chatBody.appendChild(element);
     chatBody.scrollTop = chatBody.scrollHeight;
   }
 
   function hideTyping() {
-    const el = document.getElementById("chat-typing-indicator");
-    if (el) el.remove();
+    document.getElementById("chat-typing-indicator")?.remove();
   }
 
-  function lockInput() {
-    awaitingUpload = true;
-    chatInput.disabled = true;
-    sendBtn.disabled = true;
-    chatInput.placeholder = "Finish the upload above...";
+  function setTextInputEnabled(enabled) {
+    chatInput.disabled = !enabled;
+    sendBtn.disabled = !enabled;
+    chatInput.placeholder = enabled ? "Type a message..." : "Please upload an image first...";
   }
 
-  function unlockInput() {
-    awaitingUpload = false;
-    chatInput.disabled = false;
-    sendBtn.disabled = false;
-    chatInput.placeholder = "Type a message...";
-    chatInput.focus();
+  function removeUploadWidgets() {
+    chatBody.querySelectorAll(".upload-widget-msg").forEach((element) => element.remove());
   }
 
-  // ===== Inline upload widget rendered as a card inside chat-body =====
   function renderUploadWidget() {
-    lockInput();
+    removeUploadWidgets();
 
-    const uid = "uw-" + Date.now();
-    const wrap = document.createElement("div");
-    wrap.className = "chat-msg bot upload-widget-msg";
-    wrap.innerHTML = `
+    const wrapper = document.createElement("div");
+    wrapper.className = "chat-msg bot upload-widget-msg";
+    const inputId = `upload-${Date.now()}`;
+
+    wrapper.innerHTML = `
       <div class="upload-widget">
         <div class="upload-widget-icon">🖼️</div>
-        <p class="upload-widget-text">Select an image to upload</p>
-        <label class="upload-widget-choose" for="${uid}">Choose Image</label>
-        <input type="file" id="${uid}" class="upload-widget-file"
-               accept="image/png, image/jpeg, image/webp, image/gif" hidden>
-        <div class="upload-widget-preview" style="display:none;">
-          <img class="upload-widget-thumb" src="" alt="Preview">
+        <p class="upload-widget-text">Please upload the original product image</p>
+        <label class="upload-widget-choose" for="${inputId}">Choose image</label>
+        <input id="${inputId}" class="upload-widget-file" type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+        <div class="upload-widget-preview" style="display:none">
+          <img class="upload-widget-thumb" src="" alt="Selected image preview">
           <button type="button" class="upload-widget-send">Upload</button>
           <button type="button" class="upload-widget-cancel">Cancel</button>
         </div>
-        <div class="upload-widget-status"></div>
+        <div class="upload-widget-status" role="status"></div>
       </div>
     `;
-    chatBody.appendChild(wrap);
+
+    chatBody.appendChild(wrapper);
     chatBody.scrollTop = chatBody.scrollHeight;
 
-    const fileInput = wrap.querySelector(".upload-widget-file");
-    const chooseLabel = wrap.querySelector(".upload-widget-choose");
-    const previewBox = wrap.querySelector(".upload-widget-preview");
-    const thumb = wrap.querySelector(".upload-widget-thumb");
-    const uploadBtn = wrap.querySelector(".upload-widget-send");
-    const cancelBtn = wrap.querySelector(".upload-widget-cancel");
-    const statusEl = wrap.querySelector(".upload-widget-status");
+    const fileInput = wrapper.querySelector(".upload-widget-file");
+    const chooseButton = wrapper.querySelector(".upload-widget-choose");
+    const preview = wrapper.querySelector(".upload-widget-preview");
+    const thumbnail = wrapper.querySelector(".upload-widget-thumb");
+    const uploadButton = wrapper.querySelector(".upload-widget-send");
+    const cancelButton = wrapper.querySelector(".upload-widget-cancel");
+    const status = wrapper.querySelector(".upload-widget-status");
 
-    let chosenFile = null;
+    let selectedFile = null;
 
-    fileInput.addEventListener("change", function () {
-      const file = fileInput.files[0];
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files?.[0];
       if (!file) return;
 
-      if (!ALLOWED_TYPES.includes(file.type)) {
-        statusEl.textContent = "Unsupported format. Use JPG, PNG, WEBP or GIF.";
-        fileInput.value = "";
-        return;
-      }
-      if (file.size > MAX_SIZE) {
-        statusEl.textContent = "Image too large. Max size is 5MB.";
+      if (!ALLOWED_TYPES.has(file.type)) {
+        status.textContent = "Unsupported format. Use JPG, PNG, WEBP, or GIF.";
         fileInput.value = "";
         return;
       }
 
-      statusEl.textContent = "";
-      chosenFile = file;
+      if (file.size > MAX_SIZE) {
+        status.textContent = "Image too large. Maximum size is 5 MB.";
+        fileInput.value = "";
+        return;
+      }
+
+      selectedFile = file;
+      status.textContent = "";
       const reader = new FileReader();
-      reader.onload = (e) => {
-        thumb.src = e.target.result;
-        previewBox.style.display = "flex";
-        chooseLabel.style.display = "none";
+      reader.onload = (event) => {
+        thumbnail.src = event.target.result;
+        chooseButton.style.display = "none";
+        preview.style.display = "flex";
       };
       reader.readAsDataURL(file);
     });
 
-    cancelBtn.addEventListener("click", function () {
-      wrap.remove();
-      unlockInput();
+    cancelButton.addEventListener("click", () => {
+      renderUploadWidget();
     });
 
-    uploadBtn.addEventListener("click", function () {
-      if (!chosenFile) return;
+    uploadButton.addEventListener("click", async () => {
+      if (!selectedFile) {
+        status.textContent = "Choose an image first.";
+        return;
+      }
 
-      uploadBtn.disabled = true;
-      cancelBtn.disabled = true;
-      statusEl.style.color = "#666";
-      statusEl.textContent = "Uploading...";
+      uploadButton.disabled = true;
+      cancelButton.disabled = true;
+      status.textContent = "Uploading and validating...";
 
       const formData = new FormData();
       formData.append("message", "");
-      formData.append("image", chosenFile);
+      formData.append("image", selectedFile);
 
-      fetch("/chat/send/", {
-        method: "POST",
-        headers: { "X-CSRFToken": csrftoken },
-        body: formData,
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.error) {
-            statusEl.style.color = "#c0392b";
-            statusEl.textContent = data.error;
-            uploadBtn.disabled = false;
-            cancelBtn.disabled = false;
-            return;
-          }
-          wrap.remove();
-          appendMessage("user", "", "", data.user_image);
-          if (data.bot_reply) appendMessage("bot", data.bot_reply, "");
-          unlockInput();
-        })
-        .catch(() => {
-          statusEl.style.color = "#c0392b";
-          statusEl.textContent = "Upload failed. Please try again.";
-          uploadBtn.disabled = false;
-          cancelBtn.disabled = false;
+      try {
+        const response = await fetch(SEND_URL, {
+          method: "POST",
+          headers: { "X-CSRFToken": csrfToken },
+          body: formData,
         });
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+          throw new Error(data.error || "Upload failed.");
+        }
+
+        wrapper.remove();
+        appendMessage("user", "", "", data.user_image);
+        if (data.bot_reply) appendMessage("bot", data.bot_reply);
+        applyToolUsage(data.tool_usage);
+      } catch (error) {
+        status.textContent = error.message || "Upload failed. Please try again.";
+        status.style.color = "#c0392b";
+        uploadButton.disabled = false;
+        cancelButton.disabled = false;
+      }
     });
   }
 
-  // Load chat history (GET) — pop-in previous conversation
-  function loadHistory() {
-    fetch("/chat/history/")
-      .then((res) => res.json())
-      .then((data) => {
-        chatBody.innerHTML = "";
-        if (data.messages.length === 0) {
-          appendMessage("bot", "Hi! How can I help you today? 👋 Type 'upload' to send an image.", "");
-        } else {
-          data.messages.forEach((m) =>
-            appendMessage(m.sender, m.message, m.time, m.image),
-          );
-        }
-      })
-      .catch(() => {
-        appendMessage("bot", "Hi! How can I help you today? 👋", "");
-      });
+  function applyToolUsage(toolUsage) {
+    if (toolUsage === UPLOAD_NODE) {
+      awaitingUpload = true;
+      setTextInputEnabled(false);
+      if (!document.querySelector(".upload-widget-msg")) renderUploadWidget();
+      return;
+    }
+
+    awaitingUpload = false;
+    removeUploadWidgets();
+    setTextInputEnabled(true);
   }
 
-  // Toggle open/close
-  toggleBtn.addEventListener("click", function () {
-    chatWindow.classList.toggle("open");
-    if (chatWindow.classList.contains("open")) {
-      loadHistory();
-      chatInput.focus();
+  async function loadHistory() {
+    try {
+      const response = await fetch(HISTORY_URL);
+      const data = await response.json();
+      chatBody.innerHTML = "";
+
+      if (!data.messages?.length) {
+        appendMessage("bot", "Hi! How can I help you today? 👋");
+      } else {
+        data.messages.forEach((message) => {
+          appendMessage(message.sender, message.message, message.time, message.image);
+        });
+      }
+
+      applyToolUsage(data.tool_usage);
+    } catch {
+      appendMessage("bot", "Hi! How can I help you today? 👋");
     }
-  });
+  }
 
-  closeBtn.addEventListener("click", function () {
-    chatWindow.classList.remove("open");
-  });
-
-  // Send a text message; if it's the "upload" command, pop the widget after the bot reply
-  chatForm.addEventListener("submit", function (e) {
-    e.preventDefault();
-    if (awaitingUpload) return; // block while widget is open
-
-    const msg = chatInput.value.trim();
-    if (!msg) return;
-
-    const isUploadCommand = msg.toLowerCase() === "upload";
-
-    appendMessage("user", msg, "");
-    chatInput.value = "";
-    sendBtn.disabled = true;
-    showTyping();
-
-    fetch("/chat/send/", {
+  async function sendTextMessage(message) {
+    const response = await fetch(SEND_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-CSRFToken": csrftoken,
+        "X-CSRFToken": csrfToken,
       },
-      body: JSON.stringify({ message: msg }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        hideTyping();
-        sendBtn.disabled = false;
-        if (data.error) {
-          appendMessage("bot", data.error, "");
-          return;
-        }
-        if (data.bot_reply) appendMessage("bot", data.bot_reply, "");
+      body: JSON.stringify({ message }),
+    });
+    const data = await response.json();
+    if (!response.ok || data.error) throw new Error(data.error || "Request failed.");
+    return data;
+  }
 
-        if (isUploadCommand) {
-          renderUploadWidget();
-        }
-      })
-      .catch(() => {
-        hideTyping();
-        sendBtn.disabled = false;
-        appendMessage("bot", "Sorry, something went wrong. Please try again.", "");
-      });
+  toggleBtn?.addEventListener("click", () => {
+    chatWindow.classList.toggle("open");
+    if (chatWindow.classList.contains("open")) {
+      loadHistory();
+      if (!awaitingUpload) chatInput.focus();
+    }
+  });
+
+  closeBtn?.addEventListener("click", () => {
+    chatWindow.classList.remove("open");
+  });
+
+  chatForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (awaitingUpload) return;
+
+    const message = chatInput.value.trim();
+    if (!message) return;
+
+    appendMessage("user", message);
+    chatInput.value = "";
+    setTextInputEnabled(false);
+    showTyping();
+
+    try {
+      const data = await sendTextMessage(message);
+      hideTyping();
+      if (data.bot_reply) appendMessage("bot", data.bot_reply);
+      applyToolUsage(data.tool_usage);
+    } catch (error) {
+      hideTyping();
+      appendMessage("bot", error.message || "Sorry, something went wrong.");
+      setTextInputEnabled(true);
+    }
   });
 });

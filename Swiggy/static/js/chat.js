@@ -1,263 +1,395 @@
-document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", () => {
   const toggleBtn = document.getElementById("chat-toggle-btn");
   const chatWindow = document.getElementById("chat-window");
   const closeBtn = document.getElementById("chat-close");
+  const newBtn = document.getElementById("chat-new-btn");
   const chatBody = document.getElementById("chat-body");
   const chatForm = document.getElementById("chat-form");
   const chatInput = document.getElementById("chat-input");
   const sendBtn = document.getElementById("chat-send-btn");
 
-  const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-  const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+  const SEND_URL = "/chat/send/";
+  const HISTORY_URL = "/chat/history/";
+  const NEW_URL = "/chat/new/";
+  const UPLOAD_NODE = "ShowInputSelectionToolNode";
+  const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+  const MAX_SIZE = 5 * 1024 * 1024;
 
-  let awaitingUpload = false; // true while the upload widget is open in chat-body
+  let awaitingUpload = false;
+  let historyLoaded = false;
 
   function getCookie(name) {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop().split(";").shift();
-    return null;
+    const cookies = `; ${document.cookie}`;
+    const parts = cookies.split(`; ${name}=`);
+    return parts.length === 2 ? parts.pop().split(";").shift() : null;
   }
-  const csrftoken = getCookie("csrftoken");
+  const csrfToken = getCookie("csrftoken");
 
-  function escapeHtml(str) {
-    const d = document.createElement("div");
-    d.innerText = str || "";
-    return d.innerHTML;
+  function escapeHtml(value) {
+    const el = document.createElement("div");
+    el.textContent = value || "";
+    return el.innerHTML;
   }
 
-  function appendMessage(sender, message, time, imageUrl) {
-    const div = document.createElement("div");
-    div.className = "chat-msg " + sender;
+  // ---------- Message rendering ----------
+
+  function appendMessage(sender, message = "", time = "", imageUrl = null) {
+    const el = document.createElement("div");
+    el.className = `chat-msg ${sender}`;
+
     let html = "";
     if (imageUrl) {
-      html += `<img class="chat-msg-img" src="${imageUrl}" alt="Sent image">`;
+      // Controlled preview only — max-width/max-height + object-fit in
+      // CSS prevents portrait/landscape/oversized images from
+      // expanding the chat column. Click opens the original full size.
+      html += `<a class="chat-img-link" href="${imageUrl}" target="_blank" rel="noopener">
+                 <img class="chat-msg-img" src="${imageUrl}" alt="Uploaded photo" loading="lazy">
+               </a>`;
     }
-    if (message) {
-      html += escapeHtml(message);
+    if (message) html += `<div class="chat-msg-text">${escapeHtml(message)}</div>`;
+    if (time) html += `<div class="chat-time">${escapeHtml(time)}</div>`;
+
+    el.innerHTML = html;
+    chatBody.appendChild(el);
+    scrollToLatest();
+    return el;
+  }
+
+  function appendErrorMessage(text, { retry } = {}) {
+    const el = document.createElement("div");
+    el.className = "chat-msg bot chat-error";
+    el.innerHTML = `
+      <div class="chat-msg-text">⚠️ ${escapeHtml(text)}</div>
+      ${retry ? `<button type="button" class="chat-retry-btn">Retry</button>` : ""}
+    `;
+    chatBody.appendChild(el);
+    scrollToLatest();
+    if (retry) {
+      el.querySelector(".chat-retry-btn").addEventListener("click", () => {
+        el.remove();
+        retry();
+      });
     }
-    html += `<div class="chat-time">${time || ""}</div>`;
-    div.innerHTML = html;
-    chatBody.appendChild(div);
+  }
+
+  function scrollToLatest() {
     chatBody.scrollTop = chatBody.scrollHeight;
   }
 
   function showTyping() {
-    const div = document.createElement("div");
-    div.className = "chat-typing";
-    div.id = "chat-typing-indicator";
-    div.innerHTML = "<span></span><span></span><span></span>";
-    chatBody.appendChild(div);
-    chatBody.scrollTop = chatBody.scrollHeight;
+    hideTyping();
+    const el = document.createElement("div");
+    el.id = "chat-typing-indicator";
+    el.className = "chat-typing";
+    el.innerHTML = "<span></span><span></span><span></span>";
+    chatBody.appendChild(el);
+    scrollToLatest();
   }
 
   function hideTyping() {
-    const el = document.getElementById("chat-typing-indicator");
-    if (el) el.remove();
+    document.getElementById("chat-typing-indicator")?.remove();
   }
 
-  function lockInput() {
-    awaitingUpload = true;
-    chatInput.disabled = true;
-    sendBtn.disabled = true;
-    chatInput.placeholder = "Finish the upload above...";
+  function showWelcome() {
+    const el = document.createElement("div");
+    el.className = "chat-welcome";
+    el.innerHTML = `
+      <div class="chat-welcome-icon">🛵</div>
+      <p><strong>Hi! I'm Swiggy Support.</strong></p>
+      <p>Ask about an order, a refund, a missing item, or paste in what went wrong — I'm here to help.</p>
+    `;
+    chatBody.appendChild(el);
   }
 
-  function unlockInput() {
+  // ---------- Composer state ----------
+
+  function setTextInputEnabled(enabled) {
+    chatInput.disabled = !enabled;
+    sendBtn.disabled = !enabled;
+    chatInput.placeholder = enabled ? "Type a message..." : "Please upload an image to continue...";
+  }
+
+  function setSendingState(sending) {
+    sendBtn.disabled = sending;
+    chatInput.disabled = sending || awaitingUpload;
+    sendBtn.innerHTML = sending
+      ? `<span class="btn-spinner"></span>`
+      : "➤";
+  }
+
+  function removeUploadWidgets() {
+    chatBody.querySelectorAll(".upload-widget-msg").forEach((el) => el.remove());
+  }
+
+  function applyToolUsage(toolUsage) {
+    if (toolUsage === UPLOAD_NODE) {
+      awaitingUpload = true;
+      setTextInputEnabled(false);
+      if (!document.querySelector(".upload-widget-msg")) renderUploadWidget();
+      return;
+    }
     awaitingUpload = false;
-    chatInput.disabled = false;
-    sendBtn.disabled = false;
-    chatInput.placeholder = "Type a message...";
-    chatInput.focus();
+    removeUploadWidgets();
+    setTextInputEnabled(true);
   }
 
-  // ===== Inline upload widget rendered as a card inside chat-body =====
-  function renderUploadWidget() {
-    lockInput();
+  // ---------- Image upload widget ----------
 
-    const uid = "uw-" + Date.now();
-    const wrap = document.createElement("div");
-    wrap.className = "chat-msg bot upload-widget-msg";
-    wrap.innerHTML = `
-      <div class="upload-widget">
+  function renderUploadWidget() {
+    removeUploadWidgets();
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "chat-msg bot upload-widget-msg";
+    const inputId = `upload-${Date.now()}`;
+
+    wrapper.innerHTML = `
+      <div class="upload-widget" data-state="empty">
         <div class="upload-widget-icon">🖼️</div>
-        <p class="upload-widget-text">Select an image to upload</p>
-        <label class="upload-widget-choose" for="${uid}">Choose Image</label>
-        <input type="file" id="${uid}" class="upload-widget-file"
-               accept="image/png, image/jpeg, image/webp, image/gif" hidden>
-        <div class="upload-widget-preview" style="display:none;">
-          <img class="upload-widget-thumb" src="" alt="Preview">
-          <button type="button" class="upload-widget-send">Upload</button>
-          <button type="button" class="upload-widget-cancel">Cancel</button>
+        <p class="upload-widget-text">Please upload a clear photo of the issue</p>
+        <label class="upload-widget-choose" for="${inputId}">Choose image</label>
+        <input id="${inputId}" class="upload-widget-file" type="file"
+               accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+
+        <div class="upload-widget-preview" hidden>
+          <div class="upload-widget-thumb-frame">
+            <img class="upload-widget-thumb" src="" alt="Selected preview">
+            <button type="button" class="upload-widget-remove" aria-label="Remove selected image">×</button>
+          </div>
+          <div class="upload-widget-progress" hidden><div class="upload-widget-progress-bar"></div></div>
+          <div class="upload-widget-actions">
+            <button type="button" class="upload-widget-send">Upload</button>
+            <button type="button" class="upload-widget-cancel">Cancel</button>
+          </div>
         </div>
-        <div class="upload-widget-status"></div>
+        <div class="upload-widget-status" role="status"></div>
       </div>
     `;
-    chatBody.appendChild(wrap);
-    chatBody.scrollTop = chatBody.scrollHeight;
 
-    const fileInput = wrap.querySelector(".upload-widget-file");
-    const chooseLabel = wrap.querySelector(".upload-widget-choose");
-    const previewBox = wrap.querySelector(".upload-widget-preview");
-    const thumb = wrap.querySelector(".upload-widget-thumb");
-    const uploadBtn = wrap.querySelector(".upload-widget-send");
-    const cancelBtn = wrap.querySelector(".upload-widget-cancel");
-    const statusEl = wrap.querySelector(".upload-widget-status");
+    chatBody.appendChild(wrapper);
+    scrollToLatest();
 
-    let chosenFile = null;
+    const widget = wrapper.querySelector(".upload-widget");
+    const fileInput = wrapper.querySelector(".upload-widget-file");
+    const chooseBtn = wrapper.querySelector(".upload-widget-choose");
+    const preview = wrapper.querySelector(".upload-widget-preview");
+    const thumb = wrapper.querySelector(".upload-widget-thumb");
+    const removeBtn = wrapper.querySelector(".upload-widget-remove");
+    const progressWrap = wrapper.querySelector(".upload-widget-progress");
+    const progressBar = wrapper.querySelector(".upload-widget-progress-bar");
+    const uploadBtn = wrapper.querySelector(".upload-widget-send");
+    const cancelBtn = wrapper.querySelector(".upload-widget-cancel");
+    const status = wrapper.querySelector(".upload-widget-status");
 
-    fileInput.addEventListener("change", function () {
-      const file = fileInput.files[0];
+    let selectedFile = null;
+
+    function resetToEmpty() {
+      selectedFile = null;
+      fileInput.value = "";
+      preview.hidden = true;
+      chooseBtn.style.display = "block";
+      widget.dataset.state = "empty";
+      status.textContent = "";
+    }
+
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files?.[0];
       if (!file) return;
 
-      if (!ALLOWED_TYPES.includes(file.type)) {
-        statusEl.textContent = "Unsupported format. Use JPG, PNG, WEBP or GIF.";
+      if (!ALLOWED_TYPES.has(file.type)) {
+        status.textContent = "Unsupported format. Use JPG, PNG, WEBP, or GIF.";
+        status.classList.add("is-error");
         fileInput.value = "";
         return;
       }
       if (file.size > MAX_SIZE) {
-        statusEl.textContent = "Image too large. Max size is 5MB.";
+        status.textContent = "Image too large. Maximum size is 5 MB.";
+        status.classList.add("is-error");
         fileInput.value = "";
         return;
       }
 
-      statusEl.textContent = "";
-      chosenFile = file;
+      selectedFile = file;
+      status.textContent = "";
+      status.classList.remove("is-error");
+
       const reader = new FileReader();
-      reader.onload = (e) => {
-        thumb.src = e.target.result;
-        previewBox.style.display = "flex";
-        chooseLabel.style.display = "none";
+      reader.onload = (event) => {
+        thumb.src = event.target.result;
+        chooseBtn.style.display = "none";
+        preview.hidden = false;
+        widget.dataset.state = "selected";
       };
       reader.readAsDataURL(file);
     });
 
-    cancelBtn.addEventListener("click", function () {
-      wrap.remove();
-      unlockInput();
-    });
+    removeBtn.addEventListener("click", resetToEmpty);
+    cancelBtn.addEventListener("click", resetToEmpty);
 
-    uploadBtn.addEventListener("click", function () {
-      if (!chosenFile) return;
-
-      uploadBtn.disabled = true;
-      cancelBtn.disabled = true;
-      statusEl.style.color = "#666";
-      statusEl.textContent = "Uploading...";
-
-      const formData = new FormData();
-      formData.append("message", "");
-      formData.append("image", chosenFile);
-
-      fetch("/chat/send/", {
-        method: "POST",
-        headers: { "X-CSRFToken": csrftoken },
-        body: formData,
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.error) {
-            statusEl.style.color = "#c0392b";
-            statusEl.textContent = data.error;
-            uploadBtn.disabled = false;
-            cancelBtn.disabled = false;
-            return;
-          }
-          wrap.remove();
-          appendMessage("user", "", "", data.user_image);
-          if (data.bot_reply) appendMessage("bot", data.bot_reply, "");
-          unlockInput();
-        })
-        .catch(() => {
-          statusEl.style.color = "#c0392b";
-          statusEl.textContent = "Upload failed. Please try again.";
-          uploadBtn.disabled = false;
-          cancelBtn.disabled = false;
-        });
+    uploadBtn.addEventListener("click", () => {
+      if (!selectedFile) {
+        status.textContent = "Choose an image first.";
+        status.classList.add("is-error");
+        return;
+      }
+      uploadImage(selectedFile, { wrapper, uploadBtn, removeBtn, cancelBtn, status, progressWrap, progressBar });
     });
   }
 
-  // Load chat history (GET) — pop-in previous conversation
-  function loadHistory() {
-    fetch("/chat/history/")
-      .then((res) => res.json())
-      .then((data) => {
-        chatBody.innerHTML = "";
-        if (data.messages.length === 0) {
-          appendMessage(
-            "bot",
-            "Hi! How can I help you today? 👋 Type 'upload' to send an image.",
-            "",
-          );
-        } else {
-          data.messages.forEach((m) =>
-            appendMessage(m.sender, m.message, m.time, m.image),
-          );
-        }
-      })
-      .catch(() => {
-        appendMessage("bot", "Hi! How can I help you today? 👋", "");
-      });
+  function uploadImage(file, ui) {
+    const { wrapper, uploadBtn, removeBtn, cancelBtn, status, progressWrap, progressBar } = ui;
+
+    uploadBtn.disabled = true;
+    removeBtn.disabled = true;
+    cancelBtn.disabled = true;
+    status.classList.remove("is-error");
+    status.textContent = "Uploading...";
+    progressWrap.hidden = false;
+    progressBar.style.width = "0%";
+
+    const formData = new FormData();
+    formData.append("message", "");
+    formData.append("image", file);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", SEND_URL);
+    xhr.setRequestHeader("X-CSRFToken", csrfToken);
+
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable) return;
+      const pct = Math.round((event.loaded / event.total) * 100);
+      progressBar.style.width = `${pct}%`;
+      status.textContent = pct < 100 ? `Uploading... ${pct}%` : "Validating image...";
+    };
+
+    xhr.onload = () => {
+      let data;
+      try {
+        data = JSON.parse(xhr.responseText);
+      } catch {
+        data = { error: "Unexpected server response." };
+      }
+
+      if (xhr.status < 200 || xhr.status >= 300 || data.error) {
+        status.textContent = data.error || "Upload failed. Please try again.";
+        status.classList.add("is-error");
+        uploadBtn.disabled = false;
+        removeBtn.disabled = false;
+        cancelBtn.disabled = false;
+        progressWrap.hidden = true;
+        return;
+      }
+
+      wrapper.remove();
+      appendMessage("user", "", "", data.user_image);
+      if (data.bot_reply) appendMessage("bot", data.bot_reply, nowLabel());
+      applyToolUsage(data.tool_usage);
+    };
+
+    xhr.onerror = () => {
+      status.textContent = "Network error during upload. Please try again.";
+      status.classList.add("is-error");
+      uploadBtn.disabled = false;
+      removeBtn.disabled = false;
+      cancelBtn.disabled = false;
+      progressWrap.hidden = true;
+    };
+
+    xhr.send(formData);
   }
 
-  // Toggle open/close
-  toggleBtn.addEventListener("click", function () {
+  function nowLabel() {
+    return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+
+  // ---------- History / bootstrap ----------
+
+  async function loadHistory() {
+    if (historyLoaded) return;
+    try {
+      const response = await fetch(HISTORY_URL);
+      const data = await response.json();
+      chatBody.innerHTML = "";
+
+      if (!data.messages?.length) {
+        showWelcome();
+      } else {
+        data.messages.forEach((m) => appendMessage(m.sender, m.message, m.time, m.image));
+      }
+
+      applyToolUsage(data.tool_usage);
+      historyLoaded = true;
+    } catch {
+      chatBody.innerHTML = "";
+      showWelcome();
+      appendErrorMessage("Could not load previous messages.", { retry: () => { historyLoaded = false; loadHistory(); } });
+    }
+  }
+
+  async function sendTextMessage(message) {
+    const response = await fetch(SEND_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken },
+      body: JSON.stringify({ message }),
+    });
+    const data = await response.json();
+    if (!response.ok || data.error) throw new Error(data.error || "Request failed.");
+    return data;
+  }
+
+  // ---------- Event wiring ----------
+
+  toggleBtn?.addEventListener("click", () => {
     chatWindow.classList.toggle("open");
     if (chatWindow.classList.contains("open")) {
       loadHistory();
-      chatInput.focus();
+      if (!awaitingUpload) chatInput.focus();
     }
   });
 
-  closeBtn.addEventListener("click", function () {
-    chatWindow.classList.remove("open");
+  closeBtn?.addEventListener("click", () => chatWindow.classList.remove("open"));
+
+  newBtn?.addEventListener("click", async () => {
+    try {
+      await fetch(NEW_URL, { method: "POST", headers: { "X-CSRFToken": csrfToken } });
+    } catch {
+      /* best-effort; still reset the visible UI below */
+    }
+    chatBody.innerHTML = "";
+    showWelcome();
+    awaitingUpload = false;
+    setTextInputEnabled(true);
+    chatInput.focus();
   });
 
-  // Send a text message; if it's the "upload" command, pop the widget after the bot reply
-  chatForm.addEventListener("submit", function (e) {
-    e.preventDefault();
-    if (awaitingUpload) return; // block while widget is open
+  chatForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (awaitingUpload) return;
 
-    const msg = chatInput.value.trim();
-    if (!msg) return;
+    const message = chatInput.value.trim();
+    if (!message) return;
 
-    const isUploadCommand = msg.toLowerCase() === "upload";
-
-    appendMessage("user", msg, "");
+    document.querySelector(".chat-welcome")?.remove();
+    appendMessage("user", message, nowLabel());
     chatInput.value = "";
-    sendBtn.disabled = true;
+    setSendingState(true);
     showTyping();
 
-    fetch("/chat/send/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": csrftoken,
-      },
-      body: JSON.stringify({ message: msg }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        hideTyping();
-        sendBtn.disabled = false;
-        if (data.error) {
-          appendMessage("bot", data.error, "");
-          return;
-        }
-        if (data.bot_reply) appendMessage("bot", data.bot_reply, "");
-
-        if (isUploadCommand) {
-          renderUploadWidget();
-        }
-      })
-      .catch(() => {
-        hideTyping();
-        sendBtn.disabled = false;
-        appendMessage(
-          "bot",
-          "Sorry, something went wrong. Please try again.",
-          "",
-        );
+    try {
+      const data = await sendTextMessage(message);
+      hideTyping();
+      setSendingState(false);
+      if (data.bot_reply) appendMessage("bot", data.bot_reply, nowLabel());
+      applyToolUsage(data.tool_usage);
+    } catch (error) {
+      hideTyping();
+      setSendingState(false);
+      setTextInputEnabled(true);
+      appendErrorMessage(error.message || "Something went wrong.", {
+        retry: () => {
+          chatInput.value = message;
+          chatForm.requestSubmit();
+        },
       });
+    }
   });
 });
