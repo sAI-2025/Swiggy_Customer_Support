@@ -23,10 +23,9 @@ RUN pip install --upgrade pip && \
 # Copy application code
 COPY . .
 
-# Create necessary directories with proper permissions
-RUN mkdir -p /app/book_analysis_project/staticfiles && \
-    mkdir -p /app/book_analysis_project/jupiter_vectordb_enhanced && \
-    chmod -R 777 /app/book_analysis_project/jupiter_vectordb_enhanced
+# Create runtime directories used by Django
+RUN mkdir -p /app/staticfiles /app/media/uploads /app/Swiggy/Agent && \
+    chmod -R 777 /app/media /app/staticfiles /app/Swiggy/Agent
 
 # Make start script executable
 RUN chmod +x /app/start.py

@@ -10,7 +10,8 @@ from langchain_core.prompts import ChatPromptTemplate
 REWRITER_PROMPT = ChatPromptTemplate.from_template(
     """You are an expert customer support assistant.
 
-Rewrite the customer's latest message into one clear standalone support request.
+Rewrite the customer's latest message into one clear standalone support request for
+food delivery or grocery/quick-commerce support.
 
 Rules:
 - Use previous conversation only for context.
@@ -28,11 +29,14 @@ Latest message:
 )
 
 CLASSIFIER_PROMPT = ChatPromptTemplate.from_template(
-    """Classify whether the user's request belongs to food-delivery customer support.
+    """Classify whether the user's request belongs to food delivery, grocery delivery,
+or quick-commerce customer support.
 
 Allowed topics ONLY:
 order status, delivery delay, missing item, wrong item, damaged item,
-refund, replacement, payment, cancellation, food quality, restaurant issue.
+spoilage, expired item, replacement, refund, payment, cancellation,
+food quality, restaurant issue, product quality, substitution issue,
+grocery bag issue, item mismatch, delivery slot issue.
 
 Everything else is off-topic.
 
@@ -46,10 +50,10 @@ VLM_PROMPT = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            "You are an image-validation assistant for a food-delivery support "
-            "system. Check whether the image is relevant to the customer's claim "
-            "and whether the described issue is visibly present. Judge only on "
-            "visible evidence.\n\n{format_instructions}",
+            "You are an image-validation assistant for a food delivery and grocery "
+            "support system. Check whether the image is relevant to the customer's "
+            "claim and whether the described issue is visibly present. Judge only "
+            "on visible evidence.\n\n{format_instructions}",
         ),
         (
             "human",
@@ -72,8 +76,8 @@ VLM_PROMPT = ChatPromptTemplate.from_messages(
 
 RESPONSE_PROMPT = ChatPromptTemplate.from_template(
     """You are Swiggy Support, a professional customer-support assistant for a
-food-delivery platform. This is GENERIC CHAT ONLY — no image evidence is
-involved in this turn.
+food-delivery and grocery-delivery platform. This is GENERIC CHAT ONLY — no
+image evidence is involved in this turn.
 
 Use the conversation history and the enhanced question to generate a
 helpful response.

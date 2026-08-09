@@ -4,21 +4,27 @@ import sys
 import subprocess
 
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
 def main():
     print("=" * 60)
-    print("Starting Jupiter FAQ Bot Application")
+    print("Starting Swiggy Django Application")
     print("=" * 60)
     print(f"Python: {sys.version}")
     print(f"CWD: {os.getcwd()}")
-    
-    # Change to Django directory
-    os.chdir('/app/book_analysis_project')
+
+    os.chdir(BASE_DIR)
     print(f"Changed to: {os.getcwd()}\n")
-    
+
+    manage_py = os.path.join(BASE_DIR, "manage.py")
+    gunicorn_app = "Settings.wsgi:application"
+    port = os.environ.get("PORT", "7860")
+
     # Migrations (don't fail on error)
     print("→ Running migrations...")
     result = subprocess.run(
-        [sys.executable, 'manage.py', 'migrate', '--noinput'],
+        [sys.executable, manage_py, 'migrate', '--noinput'],
         capture_output=True,
         text=True
     )
@@ -26,11 +32,11 @@ def main():
         print("✓ Migrations complete\n")
     else:
         print(f"⚠ Migration warning: {result.stderr}\n")
-    
+
     # Static files
     print("→ Collecting static files...")
     result = subprocess.run(
-        [sys.executable, 'manage.py', 'collectstatic', '--noinput', '--clear'],
+        [sys.executable, manage_py, 'collectstatic', '--noinput', '--clear'],
         capture_output=True,
         text=True
     )
@@ -38,17 +44,16 @@ def main():
         print("✓ Static files collected\n")
     else:
         print(f"⚠ Static files warning: {result.stderr}\n")
-    
+
     # Start Gunicorn
     print("→ Starting Gunicorn server...")
     print("=" * 60)
-    
-    # Use Python module approach (more reliable)
+
     subprocess.run([
         sys.executable, '-m', 'gunicorn',
-        'chatbot_project.wsgi:application',
-        '--bind', '0.0.0.0:7860',
-        '--workers', '2',
+        gunicorn_app,
+        '--bind', f'0.0.0.0:{port}',
+        '--workers', os.environ.get('WEB_CONCURRENCY', '2'),
         '--threads', '4',
         '--timeout', '120',
         '--worker-class', 'gthread',
