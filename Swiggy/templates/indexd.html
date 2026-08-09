@@ -5,59 +5,14 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Swiggy Support</title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=20260808-2" />
-
-    <!-- Scoped fixes for this page only: logo placement + chat-widget
-       viewport clipping. Moved into style.css once verified, kept here
-       inline for now so this single file is self-contained. -->
-    <style>
-      /* ---- 1. Logo placed AFTER the "Swiggy" wordmark ---- */
-      .brand-logo {
-        height: 26px;
-        width: auto;
-        max-width: 90px;
-        object-fit: contain;
-        display: block;
-        /* Prevents a missing/slow-loading file from collapsing to 0x0
-         and leaving a broken-image icon in the navbar. */
-        background: transparent;
-      }
-      .brand-logo[src=""],
-      .brand-logo:not([src]) {
-        display: none;
-      }
-
-      /* ---- 2. Chat widget: stop it clipping off-screen ----
-       Root cause of "widget having issues": a fixed 600px height +
-       bottom:96px offset overflows the viewport top on short/laptop
-       screens, and long bot messages had no internal scroll ceiling.
-       max-height + min() keeps the window fully on-screen at any
-       viewport size, and chat-body already scrolls internally. */
-      #chat-window {
-        height: min(600px, calc(100vh - 120px));
-        max-height: calc(100vh - 120px);
-      }
-      @media (max-width: 650px) {
-        #chat-window {
-          height: min(74vh, calc(100vh - 100px));
-          max-height: calc(100vh - 100px);
-        }
-      }
-      /* Header actions were only 6px apart from the close button on
-       narrow widths, making "New" easy to mis-tap next to "×". */
-      .chat-header-actions {
-        gap: 8px;
-      }
-      #chat-new-btn {
-        white-space: nowrap;
-      }
-    </style>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=20260808-1" />
   </head>
   <body>
     <header class="navbar">
       <a class="brand" href="/" aria-label="Swiggy home">
+        <!-- <span class="brand-icon">●</span><span>Swiggy</span> -->
         <img
-          src="{% static 'images/logo.jfif' %}"
+          src="{% static 'images/SWIGGY.png' %}"
           alt="Swiggy"
           style="width: 32px; height: 32px; object-fit: contain; display: block"
         />
@@ -153,6 +108,6 @@
       </form>
     </section>
 
-    <script src="{% static 'js/chat.js' %}?v=20260808-2"></script>
+    <script src="{% static 'js/chat.js' %}?v=20260808-1"></script>
   </body>
 </html>

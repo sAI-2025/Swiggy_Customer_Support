@@ -1,0 +1,3 @@
+# Don't ignore vector DB
+!jupiter_vectordb_enhanced/
+!jupiter_vectordb_enhanced/chroma.sqlite3
