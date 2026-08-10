@@ -29,9 +29,10 @@ class ClassificationOutput(BaseModel):
     is_related: bool = Field(
         ...,
         description=(
-            "True ONLY for food-delivery support topics: order status, "
-            "delivery delay, missing/wrong/damaged item, food quality, "
-            "refund, replacement, payment, cancellation. False otherwise."
+            "True ONLY for food, grocery, and quick-commerce support topics: "
+            "order status, delivery delay, missing/wrong/damaged item, food "
+            "quality, grocery quality, substitution issues, refund, replacement, "
+            "payment, cancellation, and item mismatch. False otherwise."
         ),
     )
 

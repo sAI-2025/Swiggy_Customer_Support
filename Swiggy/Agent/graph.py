@@ -100,9 +100,9 @@ BOT_NAME = "Swiggy Support"
 SQLITE_DB_PATH = "swiggy_support.sqlite"
 
 OFF_TOPIC_MESSAGE = (
-    f"{BOT_NAME}: I'm designed to assist with food-delivery customer support "
-    "such as delivery issues, refunds, payments, cancellations, and "
-    "order-related questions."
+    f"{BOT_NAME}: I'm designed to assist with food-delivery and grocery "
+    "support such as delivery issues, refunds, payments, cancellations, "
+    "substitutions, missing items, damaged items, and order-related questions."
 )
 
 SHOW_INPUT_MESSAGE = f"{BOT_NAME}: Please enter file path"
@@ -136,6 +136,8 @@ IMAGE_NEED_KEYWORDS = [
     "damaged", "burnt", "burned", "spilled", "spoiled", "broken", "crushed",
     "wrong item", "missing item", "rotten", "moldy", "leaked", "torn",
     "smashed", "melted", "stale", "expired", "contaminated",
+    "substitution", "substituted", "quantity", "short", "less items",
+    "missing items", "packaging", "leak", "open pack", "tampered",
 ]
 
 
@@ -147,7 +149,12 @@ def needs_image_evidence(question: str) -> bool:
 def _extract_item_name(question: str) -> str:
     """Best-effort item name for the refund template; falls back to 'order'."""
     q = (question or "").lower()
-    for word in ["pizza", "burger", "biryani", "drink", "cake", "sandwich", "meal", "order"]:
+    for word in [
+        "pizza", "burger", "biryani", "drink", "cake", "sandwich", "meal",
+        "milk", "bread", "eggs", "egg", "rice", "atta", "oil", "fruits",
+        "vegetables", "vegetable", "snacks", "chips", "soap", "shampoo",
+        "detergent", "medicine", "groceries", "grocery", "order",
+    ]:
         if word in q:
             return word
     return "order"
@@ -213,7 +220,10 @@ def question_classifier_node(state: GraphState) -> dict:
         keywords = [
             "order", "deliver", "refund", "cancel", "missing", "damaged",
             "wrong", "spoiled", "payment", "replace", "food", "item",
-            "pizza", "burger", "biryani", "restaurant",
+            "pizza", "burger", "biryani", "restaurant", "grocery",
+            "groceries", "quick commerce", "quick-commerce", "zepto",
+            "blinkit", "instamart", "supermarket", "substitution",
+            "expired", "quantity", "pack", "bag", "produce",
         ]
         return {"classifier_result": any(k in q for k in keywords)}
 
