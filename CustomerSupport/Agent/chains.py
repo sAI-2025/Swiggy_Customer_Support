@@ -20,7 +20,7 @@ from schema import ClassificationOutput, ResponseOutput, RewriterOutput, VLMOutp
 
 load_dotenv()
 
-GROQ_MODEL = "llama-3.1-8b-instant"
+GROQ_MODEL = "openai/gpt-oss-120b"
 
 
 def get_groq_llm(temperature: float = 0) -> ChatGroq:
