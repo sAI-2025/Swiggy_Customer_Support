@@ -1,0 +1,265 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Blinkit </title>
+    <link rel="stylesheet" href="{% static 'css/blinkit_chat.css' %}?v=1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Okra:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+      body { margin: 0; font-family: 'Okra', sans-serif; background-color: #f7f7f8; padding-top: 80px; }
+      * { box-sizing: border-box; }
+
+      /* Chat Widget Styles */
+      .brand-logo { height: 26px; width: auto; max-width: 90px; object-fit: contain; display: block; background: transparent; }
+      .brand-logo[src=""], .brand-logo:not([src]) { display: none; }
+      #chat-window { height: min(600px, calc(100vh - 120px)); max-height: calc(100vh - 120px); z-index: 1000; }
+      @media (max-width: 650px) { #chat-window { height: min(74vh, calc(100vh - 100px)); max-height: calc(100vh - 100px); } }
+      .chat-header-actions { gap: 8px; }
+      #chat-new-btn { white-space: nowrap; }
+
+      /* Navbar */
+      .header { position: fixed; top: 0; width: 100%; height: 80px; background-color: white; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; padding: 0 40px; z-index: 100; }
+      .header-left { display: flex; align-items: center; gap: 40px; }
+      .logo-brand { color: #facc15; font-size: 34px; font-weight: 900; letter-spacing: -1.5px; text-decoration: none; display: flex; align-items: center;}
+      .logo-brand span { color: #16a34a; }
+      .delivery-info { display: flex; flex-direction: column; }
+      .delivery-info h3 { margin: 0; font-size: 16px; font-weight: 800; color: #333; }
+      .delivery-info p { margin: 2px 0 0; font-size: 12px; color: #888; }
+      .search-bar { flex: 1; max-width: 600px; display: flex; align-items: center; background: #f8f8f8; border: 1px solid #eee; border-radius: 12px; padding: 12px 20px; margin: 0 40px; }
+      .search-bar input { border: none; background: transparent; outline: none; width: 100%; font-size: 15px; color: #333; margin-left: 10px; }
+      .header-right { display: flex; align-items: center; gap: 20px; }
+      .login-btn { border: none; background: transparent; font-size: 16px; color: #333; font-weight: 600; cursor: pointer; }
+      .cart-btn { background: #16a34a; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+
+      /* Main Container */
+      .main-container { max-width: 1240px; margin: 20px auto; padding: 0 20px; }
+
+      /* Banners */
+      .hero-banner { width: 100%; border-radius: 12px; background: linear-gradient(to right, #208343, #53a63f); height: 200px; color: white; padding: 40px; display: flex; flex-direction: column; justify-content: center; position: relative; overflow: hidden; margin-bottom: 20px; }
+      .hero-banner h1 { margin: 0; font-size: 38px; font-weight: 800; }
+      .hero-banner p { margin: 10px 0 20px; font-size: 18px; opacity: 0.9; }
+      .hero-banner button { background: white; color: #16a34a; border: none; padding: 10px 24px; border-radius: 8px; font-weight: 700; font-size: 14px; width: max-content; cursor: pointer; }
+
+      .sub-banners { display: flex; gap: 20px; margin-bottom: 30px; }
+      .sub-banner { flex: 1; height: 100px; border-radius: 12px; padding: 20px; color: white; font-weight: 700; display: flex; align-items: center; cursor: pointer; }
+      .sub-banner:nth-child(1) { background: linear-gradient(135deg, #0dcbc8, #059c99); }
+      .sub-banner:nth-child(2) { background: linear-gradient(135deg, #f59e0b, #d97706); }
+      .sub-banner:nth-child(3) { background: linear-gradient(135deg, #6366f1, #4f46e5); }
+
+      /* Categories */
+      .categories-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 15px; margin-bottom: 40px; }
+      .category-item { display: flex; flex-direction: column; align-items: center; text-align: center; cursor: pointer; }
+      .category-img { width: 70px; height: 70px; background: #e5f6e5; border-radius: 50%; margin-bottom: 8px; }
+      .category-item span { font-size: 12px; font-weight: 600; color: #444; line-height: 1.2; }
+
+      /* Product Rows */
+      .product-section { margin-bottom: 30px; }
+      .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+      .section-header h2 { margin: 0; font-size: 22px; color: #1a1a1a; font-weight: 800; }
+      .section-header a { color: #16a34a; text-decoration: none; font-weight: 700; font-size: 16px; }
+
+      .products-row { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 10px; scrollbar-width: none; }
+      .products-row::-webkit-scrollbar { display: none; }
+
+      .product-card { flex: 0 0 180px; background: white; border: 1px solid #f0f0f0; border-radius: 8px; padding: 12px; position: relative; display: flex; flex-direction: column; }
+      .product-card .img-container { width: 100%; height: 120px; display: flex; justify-content: center; align-items: center; margin-bottom: 10px; }
+      .product-card .img-container div { width: 80%; height: 80%; background: #f9f9f9; border-radius: 4px; }
+      .time-badge { background: #f3f4f6; color: #111; font-size: 10px; font-weight: 700; padding: 3px 6px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px; margin-bottom: 6px; width: max-content; }
+      .product-card h4 { margin: 0 0 6px; font-size: 14px; color: #1a1a1a; font-weight: 600; line-height: 1.3; flex-grow: 1; }
+      .product-card .weight { color: #666; font-size: 12px; margin-bottom: 12px; }
+      .price-action-row { display: flex; justify-content: space-between; align-items: center; }
+      .price { font-weight: 700; font-size: 15px; color: #1a1a1a; }
+      .add-btn { background: #f3fcf4; border: 1px solid #16a34a; color: #16a34a; padding: 6px 20px; border-radius: 6px; font-weight: 700; font-size: 13px; cursor: pointer; text-transform: uppercase; transition: all 0.2s;}
+      .add-btn:hover { background: #16a34a; color: white; }
+
+      /* Mock footer */
+      .footer { background: #fcfcfc; border-top: 1px solid #eee; padding: 40px 0; margin-top: 40px; color: #666; font-size: 14px; }
+    </style>
+  </head>
+  <body>
+    <header class="header">
+      <div class="header-left">
+        <a class="logo-brand" href="/">blink<span>it</span></a>
+        <div class="delivery-info">
+          <h3>Delivery in 8 minutes</h3>
+          <p>HSR Layout, Bengaluru...</p>
+        </div>
+      </div>
+      <div class="search-bar">
+        <span style="color:#888;">🔍</span>
+        <input type="text" placeholder="Search 'milk'" />
+      </div>
+      <div class="header-right">
+        <button class="login-btn">Login</button>
+        <button class="cart-btn">🛒 My Cart</button>
+      </div>
+    </header>
+
+    <div class="main-container">
+      <div class="hero-banner">
+        <h1>Stock up on daily essentials</h1>
+        <p>Get farm-fresh goodness & a range of exotic fruits, vegetables, eggs & more</p>
+        <button>Shop Now</button>
+      </div>
+
+      <div class="sub-banners">
+        <div class="sub-banner">Pharmacy at your doorstep!</div>
+        <div class="sub-banner">Pet care supplies at your door</div>
+        <div class="sub-banner">No time for a diaper run?</div>
+      </div>
+
+      <div class="categories-grid">
+        <div class="category-item"><div class="category-img" style="background:#fecaca;"></div><span>Paan Corner</span></div>
+        <div class="category-item"><div class="category-img" style="background:#bbf7d0;"></div><span>Dairy, Bread & Eggs</span></div>
+        <div class="category-item"><div class="category-img" style="background:#fef08a;"></div><span>Fruits & Veggies</span></div>
+        <div class="category-item"><div class="category-img" style="background:#e9d5ff;"></div><span>Cold Drinks</span></div>
+        <div class="category-item"><div class="category-img" style="background:#fed7aa;"></div><span>Snacks</span></div>
+        <div class="category-item"><div class="category-img" style="background:#bae6fd;"></div><span>Breakfast</span></div>
+        <div class="category-item"><div class="category-img" style="background:#fbcfe8;"></div><span>Sweet Tooth</span></div>
+        <div class="category-item"><div class="category-img" style="background:#d9f99d;"></div><span>Bakery</span></div>
+        <div class="category-item"><div class="category-img" style="background:#e5e7eb;"></div><span>Tea & Coffee</span></div>
+        <div class="category-item"><div class="category-img" style="background:#fca5a5;"></div><span>Meats</span></div>
+      </div>
+
+      <div class="product-section">
+        <div class="section-header">
+          <h2>Dairy, Bread & Eggs</h2>
+          <a href="#">see all</a>
+        </div>
+        <div class="products-row">
+          <!-- Product Card 1 -->
+          <div class="product-card">
+            <div class="img-container"><div style="background:#dcfce7;"></div></div>
+            <div class="time-badge">⏱️ 8 MINS</div>
+            <h4>Amul Taaza Toned Fresh Milk</h4>
+            <div class="weight">500 ml</div>
+            <div class="price-action-row">
+              <div class="price">₹28</div>
+              <button class="add-btn">ADD</button>
+            </div>
+          </div>
+          <!-- Product Card 2 -->
+          <div class="product-card">
+            <div class="img-container"><div style="background:#fef08a;"></div></div>
+            <div class="time-badge">⏱️ 8 MINS</div>
+            <h4>Heritage Toned Milk</h4>
+            <div class="weight">500 ml</div>
+            <div class="price-action-row">
+              <div class="price">₹27</div>
+              <button class="add-btn">ADD</button>
+            </div>
+          </div>
+          <!-- Product Card 3 -->
+          <div class="product-card">
+            <div class="img-container"><div style="background:#ffedd5;"></div></div>
+            <div class="time-badge">⏱️ 8 MINS</div>
+            <h4>Nandini Good Life Milk</h4>
+            <div class="weight">500 ml</div>
+            <div class="price-action-row">
+              <div class="price">₹29</div>
+              <button class="add-btn">ADD</button>
+            </div>
+          </div>
+          <!-- Product Card 4 -->
+          <div class="product-card">
+            <div class="img-container"><div style="background:#f3e8ff;"></div></div>
+            <div class="time-badge">⏱️ 8 MINS</div>
+            <h4>Britannia White Bread</h4>
+            <div class="weight">400 g</div>
+            <div class="price-action-row">
+              <div class="price">₹45</div>
+              <button class="add-btn">ADD</button>
+            </div>
+          </div>
+          <!-- Product Card 5 -->
+          <div class="product-card">
+            <div class="img-container"><div style="background:#ffe4e6;"></div></div>
+            <div class="time-badge">⏱️ 8 MINS</div>
+            <h4>Farm Fresh Eggs</h4>
+            <div class="weight">6 pcs</div>
+            <div class="price-action-row">
+              <div class="price">₹55</div>
+              <button class="add-btn">ADD</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="product-section">
+        <div class="section-header">
+          <h2>Snacks & Munchies</h2>
+          <a href="#">see all</a>
+        </div>
+        <div class="products-row">
+          <!-- Product Card 1 -->
+          <div class="product-card">
+            <div class="img-container"><div style="background:#fef08a;"></div></div>
+            <div class="time-badge">⏱️ 8 MINS</div>
+            <h4>Lay's India's Magic Masala</h4>
+            <div class="weight">50 g</div>
+            <div class="price-action-row">
+              <div class="price">₹20</div>
+              <button class="add-btn">ADD</button>
+            </div>
+          </div>
+          <!-- Product Card 2 -->
+          <div class="product-card">
+            <div class="img-container"><div style="background:#fed7aa;"></div></div>
+            <div class="time-badge">⏱️ 8 MINS</div>
+            <h4>Kurkure Masala Munch</h4>
+            <div class="weight">90 g</div>
+            <div class="price-action-row">
+              <div class="price">₹20</div>
+              <button class="add-btn">ADD</button>
+            </div>
+          </div>
+          <!-- Product Card 3 -->
+          <div class="product-card">
+            <div class="img-container"><div style="background:#fbcfe8;"></div></div>
+            <div class="time-badge">⏱️ 8 MINS</div>
+            <h4>Doritos Nacho Cheese</h4>
+            <div class="weight">60 g</div>
+            <div class="price-action-row">
+              <div class="price">₹30</div>
+              <button class="add-btn">ADD</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <div class="main-container" style="text-align: center;">
+        <p>© Blink Commerce Private Limited, 2026</p>
+      </div>
+    </footer>
+
+    <button id="chat-toggle-btn" type="button" aria-label="Open support chat">
+      💬
+    </button>
+
+    <section id="chat-window" aria-label="Blinkit Support chat">
+      <header class="chat-header">
+        <div class="chat-agent">
+          <span class="chat-avatar" style="background: #16a34a; border: 2px solid white; color: white;">B</span>
+          <div><strong>Blinkit Support</strong><small><span class="status-dot"></span> Online</small></div>
+        </div>
+        <div class="chat-header-actions">
+          <button id="chat-new-btn" type="button" title="Start a new conversation">New</button>
+          <button id="chat-close" type="button" aria-label="Close chat">×</button>
+        </div>
+      </header>
+      <div id="chat-body" class="chat-body" aria-live="polite"></div>
+      <form id="chat-form" class="chat-input-row" autocomplete="off">
+        <input id="chat-input" type="text" placeholder="Type a message..." maxlength="2000" />
+        <button id="chat-send-btn" type="submit" aria-label="Send message">➤</button>
+      </form>
+    </section>
+
+    <script src="{% static 'js/blinkit.js' %}"></script>
+  </body>
+</html>

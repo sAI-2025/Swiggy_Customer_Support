@@ -8,9 +8,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const chatInput = document.getElementById("chat-input");
   const sendBtn = document.getElementById("chat-send-btn");
 
-  const SEND_URL = "/chat/send/";
-  const HISTORY_URL = "/chat/history/";
-  const NEW_URL = "/chat/new/";
+  const SEND_URL = "/support/chat/send/";
+  const HISTORY_URL = "/support/chat/history/";
+  const NEW_URL = "/support/chat/new/";
   const UPLOAD_NODE = "ShowInputSelectionToolNode";
   const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
   const MAX_SIZE = 5 * 1024 * 1024;

@@ -135,8 +135,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ---------- Image upload widget ----------
 
-  // ---------- Image upload widget ----------
-
   function renderUploadWidget() {
     removeUploadWidgets();
 
@@ -146,16 +144,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     wrapper.innerHTML = `
       <div class="upload-widget" data-state="empty">
-        <div class="upload-widget-icon">📷</div>
-        <p class="upload-widget-text">Upload a clear photo or drag & drop here</p>
-        <label class="upload-widget-choose" for="${inputId}">Choose Image</label>
+        <div class="upload-widget-icon">🖼️</div>
+        <p class="upload-widget-text">Please upload a clear photo of the issue</p>
+        <label class="upload-widget-choose" for="${inputId}">Choose image</label>
         <input id="${inputId}" class="upload-widget-file" type="file"
                accept="image/jpeg,image/png,image/webp,image/gif" hidden>
 
         <div class="upload-widget-preview" hidden>
           <div class="upload-widget-thumb-frame">
             <img class="upload-widget-thumb" src="" alt="Selected preview">
-            <button type="button" class="upload-widget-remove" title="Remove selected image" aria-label="Remove image">×</button>
+            <button type="button" class="upload-widget-remove" aria-label="Remove selected image">×</button>
           </div>
           <div class="upload-widget-progress" hidden><div class="upload-widget-progress-bar"></div></div>
           <div class="upload-widget-actions">
@@ -188,13 +186,13 @@ document.addEventListener("DOMContentLoaded", () => {
       selectedFile = null;
       fileInput.value = "";
       preview.hidden = true;
-      chooseBtn.style.display = "inline-flex";
+      chooseBtn.style.display = "block";
       widget.dataset.state = "empty";
       status.textContent = "";
-      status.classList.remove("is-error");
     }
 
-    function processFile(file) {
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files?.[0];
       if (!file) return;
 
       if (!ALLOWED_TYPES.has(file.type)) {
@@ -220,28 +218,8 @@ document.addEventListener("DOMContentLoaded", () => {
         chooseBtn.style.display = "none";
         preview.hidden = false;
         widget.dataset.state = "selected";
-        scrollToLatest();
       };
       reader.readAsDataURL(file);
-    }
-
-    fileInput.addEventListener("change", () => {
-      processFile(fileInput.files?.[0]);
-    });
-
-    // Drag and Drop support
-    widget.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      widget.classList.add("is-dragover");
-    });
-    widget.addEventListener("dragleave", () => {
-      widget.classList.remove("is-dragover");
-    });
-    widget.addEventListener("drop", (e) => {
-      e.preventDefault();
-      widget.classList.remove("is-dragover");
-      const file = e.dataTransfer?.files?.[0];
-      if (file) processFile(file);
     });
 
     removeBtn.addEventListener("click", resetToEmpty);
@@ -361,20 +339,14 @@ document.addEventListener("DOMContentLoaded", () => {
   // ---------- Event wiring ----------
 
   toggleBtn?.addEventListener("click", () => {
-    const isOpen = chatWindow.classList.toggle("open");
-    toggleBtn.innerHTML = isOpen ? "✕" : "💬";
-    toggleBtn.setAttribute("aria-label", isOpen ? "Close support chat" : "Open support chat");
-    if (isOpen) {
+    chatWindow.classList.toggle("open");
+    if (chatWindow.classList.contains("open")) {
       loadHistory();
       if (!awaitingUpload) chatInput.focus();
     }
   });
 
-  closeBtn?.addEventListener("click", () => {
-    chatWindow.classList.remove("open");
-    toggleBtn.innerHTML = "💬";
-    toggleBtn.setAttribute("aria-label", "Open support chat");
-  });
+  closeBtn?.addEventListener("click", () => chatWindow.classList.remove("open"));
 
   newBtn?.addEventListener("click", async () => {
     try {

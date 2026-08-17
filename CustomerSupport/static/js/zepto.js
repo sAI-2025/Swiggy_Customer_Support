@@ -8,9 +8,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const chatInput = document.getElementById("chat-input");
   const sendBtn = document.getElementById("chat-send-btn");
 
-  const SEND_URL = "/chat/send/";
-  const HISTORY_URL = "/chat/history/";
-  const NEW_URL = "/chat/new/";
+  const SEND_URL = "/support/chat/send/";
+  const HISTORY_URL = "/support/chat/history/";
+  const NEW_URL = "/support/chat/new/";
   const UPLOAD_NODE = "ShowInputSelectionToolNode";
   const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
   const MAX_SIZE = 5 * 1024 * 1024;
@@ -94,8 +94,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const el = document.createElement("div");
     el.className = "chat-welcome";
     el.innerHTML = `
-      <div class="chat-welcome-icon">🛵</div>
-      <p><strong>Hi! I'm Swiggy Support.</strong></p>
+      <div class="chat-welcome-icon">⚡</div>
+      <p><strong>Hi! I'm Zepto Support.</strong></p>
       <p>Ask about an order, a refund, a missing item, or paste in what went wrong — I'm here to help.</p>
     `;
     chatBody.appendChild(el);
