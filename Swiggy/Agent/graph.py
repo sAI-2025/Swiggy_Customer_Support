@@ -105,13 +105,12 @@ OFF_TOPIC_MESSAGE = (
     "substitutions, missing items, damaged items, and order-related questions."
 )
 
-SHOW_INPUT_MESSAGE = f"{BOT_NAME}: Please enter file path"
+SHOW_INPUT_MESSAGE = f"{BOT_NAME}: Please upload a clear photo of the  product"
 
 # --- FIXED (non-LLM) terminal messages for the image-evidence flow ---
 
 AI_GENERATED_MESSAGE = (
-    f"{BOT_NAME}: Please upload the original image on the product. "
-    "It looks like an AI-generated one."
+    f"{BOT_NAME}: We couldn't verify this image as an original photo .It looks like an AI-generated one."
 )
 
 REFUND_APPROVED_TEMPLATE = (
