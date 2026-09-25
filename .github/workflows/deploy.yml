@@ -42,7 +42,7 @@ jobs:
 
       - name: Push repository to Hugging Face Space
         env:
-          HF_OIDC_RESOURCE: ${{ vars.HF_OIDC_RESOURCE || vars.HF_SPACE_ID || github.repository }}
+          HF_OIDC_RESOURCE: ${{ vars.HF_OIDC_RESOURCE || vars.HF_SPACE_ID || 'dsasw/Scam' }}
         run: |
           test -n "$HF_OIDC_RESOURCE"
           HF_TOKEN="$(hf auth token)"
