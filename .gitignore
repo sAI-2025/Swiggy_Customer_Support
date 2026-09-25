@@ -85,3 +85,16 @@ models/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+# Database runtime files
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+db.sqlite3
+
+# User-uploaded media
+media/uploads/
+
+# Python
+__pycache__/
+*.pyc
+.env
