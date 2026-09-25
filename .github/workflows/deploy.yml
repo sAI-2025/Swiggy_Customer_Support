@@ -1,0 +1,56 @@
+name: Deploy to Hugging Face Spaces
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    branches:
+      - main
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: huggingface-space-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install Hugging Face CLI
+        run: |
+          curl -LsSf https://hf.co/cli/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Push repository to Hugging Face Space
+        env:
+          HF_OIDC_RESOURCE: ${{ vars.HF_OIDC_RESOURCE }}
+        run: |
+          test -n "$HF_OIDC_RESOURCE"
+          HF_TOKEN="$(hf auth token)"
+          umask 077
+          cat > ~/.netrc <<EOF
+          machine huggingface.co
+          login __token__
+          password ${HF_TOKEN}
+          EOF
+          git remote add huggingface https://huggingface.co/spaces/${HF_OIDC_RESOURCE}
+          git push huggingface HEAD:main --force

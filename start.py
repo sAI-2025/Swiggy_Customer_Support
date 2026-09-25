@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 import os
-import sys
 import subprocess
-
+import sys
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -21,35 +20,30 @@ def main():
     gunicorn_app = "Settings.wsgi:application"
     port = os.environ.get("PORT", "7860")
 
-    # Migrations (don't fail on error)
-    print("→ Running migrations...")
-    result = subprocess.run(
-        [sys.executable, manage_py, 'migrate', '--noinput'],
-        capture_output=True,
-        text=True
-    )
-    if result.returncode == 0:
-        print("✓ Migrations complete\n")
-    else:
-        print(f"⚠ Migration warning: {result.stderr}\n")
+    def run_step(step_name, command):
+        print(f"→ {step_name}...")
+        result = subprocess.run(
+            [sys.executable, manage_py, *command],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.stdout:
+            print(result.stdout)
+        if result.returncode != 0:
+            if result.stderr:
+                print(result.stderr, file=sys.stderr)
+            raise RuntimeError(f"{step_name} failed with exit code {result.returncode}")
+        print(f"✓ {step_name} complete\n")
 
-    # Static files
-    print("→ Collecting static files...")
-    result = subprocess.run(
-        [sys.executable, manage_py, 'collectstatic', '--noinput', '--clear'],
-        capture_output=True,
-        text=True
-    )
-    if result.returncode == 0:
-        print("✓ Static files collected\n")
-    else:
-        print(f"⚠ Static files warning: {result.stderr}\n")
+    run_step("Running migrations", ["migrate", "--noinput"])
+    run_step("Collecting static files", ["collectstatic", "--noinput", "--clear"])
 
     # Start Gunicorn
     print("→ Starting Gunicorn server...")
     print("=" * 60)
 
-    subprocess.run([
+    os.execvp(sys.executable, [
         sys.executable, '-m', 'gunicorn',
         gunicorn_app,
         '--bind', f'0.0.0.0:{port}',
@@ -69,10 +63,9 @@ if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        print("\n⚠ Shutdown requested")
-        sys.exit(0)
-    except Exception as e:
-        print(f"\n❌ FATAL ERROR: {e}")
-        import traceback
-        traceback.print_exc()
+        try:
+            main()
+        except KeyboardInterrupt:
+            print("\n⚠ Shutdown requested")
+            sys.exit(0)
         sys.exit(1)

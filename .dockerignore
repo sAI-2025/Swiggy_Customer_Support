@@ -16,6 +16,10 @@ __pycache__/
 .vscode/
 staticfiles/
 media/
+htmlcov/
+.coverage*
 *.sqlite3-journal
 *.sqlite-wal
 *.sqlite-shm
+db.sqlite3
+swiggy_support.sqlite

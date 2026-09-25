@@ -1,13 +1,18 @@
-from django.contrib import admin
-from django.urls import path, include,re_path
 from django.conf import settings
 from django.conf.urls.static import static
+from django.http import HttpResponse
+from django.urls import include, path, re_path
 from django.views.static import serve
+
+
+def healthz(_request):
+    return HttpResponse("ok", content_type="text/plain")
 
 
 urlpatterns = [
     #path('admin/', admin.site.urls),
     #path('', include('Swiggy.urls')),
+    path('healthz/', healthz),
     path('support/', include('CustomerSupport.urls')),
 ]
 
