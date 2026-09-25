@@ -39,3 +39,8 @@ Configure the Space's Trusted Publishers so GitHub Actions can mint a short-live
   - `repository` = your GitHub repository
   - `branch` = `main`
   - `workflow` = `deploy.yml`
+
+Set optional GitHub Actions variables for deployment target resolution:
+
+- `HF_OIDC_RESOURCE` (preferred) or `HF_SPACE_ID` as `<namespace>/<space-name>`
+- If neither variable is set, deployment defaults to `${{ github.repository }}`
