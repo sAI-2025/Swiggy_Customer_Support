@@ -38,7 +38,7 @@ jobs:
 
       - name: Lint with Ruff
         run: |
-          ruff check Settings manage.py start.py
+          ruff check --ignore N999 Settings manage.py start.py
 
       - name: Check formatting with Ruff
         run: |

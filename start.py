@@ -43,23 +43,36 @@ def main():
     print("→ Starting Gunicorn server...")
     print("=" * 60)
 
-    os.execvp(sys.executable, [
-        sys.executable, '-m', 'gunicorn',
-        gunicorn_app,
-        '--bind', f'0.0.0.0:{port}',
-        '--workers', os.environ.get('WEB_CONCURRENCY', '2'),
-        '--threads', '4',
-        '--timeout', '120',
-        '--worker-class', 'gthread',
-        '--log-level', 'info',
-        '--access-logfile', '-',
-        '--error-logfile', '-',
-        '--capture-output',
-        '--enable-stdio-inheritance'
-    ])
+    os.execvp(
+        sys.executable,
+        [
+            sys.executable,
+            "-m",
+            "gunicorn",
+            gunicorn_app,
+            "--bind",
+            f"0.0.0.0:{port}",
+            "--workers",
+            os.environ.get("WEB_CONCURRENCY", "2"),
+            "--threads",
+            "4",
+            "--timeout",
+            "120",
+            "--worker-class",
+            "gthread",
+            "--log-level",
+            "info",
+            "--access-logfile",
+            "-",
+            "--error-logfile",
+            "-",
+            "--capture-output",
+            "--enable-stdio-inheritance",
+        ],
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
