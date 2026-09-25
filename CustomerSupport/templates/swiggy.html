@@ -1,0 +1,159 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Swiggy Support</title>
+    <link rel="stylesheet" href="{% static 'css/swiggy_chat.css' %}?v=20260808-2" />
+
+    <!-- Scoped fixes for this page only: logo placement + chat-widget
+       viewport clipping. Moved into style.css once verified, kept here
+       inline for now so this single file is self-contained. -->
+    <style>
+      /* ---- 1. Logo placed AFTER the "Swiggy" wordmark ---- */
+      .brand-logo {
+        height: 26px;
+        width: auto;
+        max-width: 90px;
+        object-fit: contain;
+        display: block;
+        /* Prevents a missing/slow-loading file from collapsing to 0x0
+         and leaving a broken-image icon in the navbar. */
+        background: transparent;
+      }
+      .brand-logo[src=""],
+      .brand-logo:not([src]) {
+        display: none;
+      }
+
+      /* ---- 2. Chat widget: stop it clipping off-screen ----
+       Root cause of "widget having issues": a fixed 600px height +
+       bottom:96px offset overflows the viewport top on short/laptop
+       screens, and long bot messages had no internal scroll ceiling.
+       max-height + min() keeps the window fully on-screen at any
+       viewport size, and chat-body already scrolls internally. */
+      #chat-window {
+        height: min(600px, calc(100vh - 120px));
+        max-height: calc(100vh - 120px);
+      }
+      @media (max-width: 650px) {
+        #chat-window {
+          height: min(74vh, calc(100vh - 100px));
+          max-height: calc(100vh - 100px);
+        }
+      }
+      /* Header actions were only 6px apart from the close button on
+       narrow widths, making "New" easy to mis-tap next to "×". */
+      .chat-header-actions {
+        gap: 8px;
+      }
+      #chat-new-btn {
+        white-space: nowrap;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="navbar">
+      <a class="brand" href="/" aria-label="Swiggy home">
+        <img
+          src="{% static 'images/logo.jfif' %}"
+          alt="Swiggy"
+          style="width: 32px; height: 32px; object-fit: contain; display: block"
+        />
+        <span>Swiggy</span>
+      </a>
+      <nav>
+        <a href="#">Swiggy Corporate</a>
+        <a href="#">Partner with us</a>
+        <button class="outline-button" type="button">Get the App ↗</button>
+        <button class="dark-button" type="button">Sign in</button>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <img
+          src="{% static 'images/main_banner.png' %}"
+          alt="Food delivery"
+          class="full-image"
+        />
+      </section>
+      <section class="content-section">
+        <img
+          src="{% static 'images/restaruents.png' %}"
+          alt="Restaurants"
+          class="full-image rounded"
+        />
+        <img
+          src="{% static 'images/items.png' %}"
+          alt="Food items"
+          class="full-image rounded"
+        />
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-grid">
+        <div>© 2026 Swiggy Limited</div>
+        <div>
+          <h3>Company</h3>
+          <a href="#">About Us</a><a href="#">Careers</a
+          ><a href="#">Swiggy Corporate</a>
+        </div>
+        <div>
+          <h3>Contact us</h3>
+          <a href="#">Help &amp; Support</a><a href="#">Partner With Us</a
+          ><a href="#">Ride With Us</a>
+        </div>
+        <div>
+          <h3>Available in:</h3>
+          <span>Bangalore</span><span>Gurgaon</span><span>Hyderabad</span
+          ><span>Delhi</span><span>Mumbai</span><span>Pune</span>
+        </div>
+      </div>
+    </footer>
+
+    <button id="chat-toggle-btn" type="button" aria-label="Open support chat">
+      💬
+    </button>
+
+    <section id="chat-window" aria-label="Swiggy Support chat">
+      <header class="chat-header">
+        <div class="chat-agent">
+          <span class="chat-avatar">🛵</span>
+          <div><strong>Swiggy Support</strong><small><span class="status-dot"></span> Online</small></div>
+        </div>
+        <div class="chat-header-actions">
+          <button
+            id="chat-new-btn"
+            type="button"
+            title="Start a new conversation"
+          >
+            New
+          </button>
+          <button id="chat-close" type="button" aria-label="Close chat">
+            ×
+          </button>
+        </div>
+      </header>
+
+      <div id="chat-body" class="chat-body" aria-live="polite"></div>
+
+      <form id="chat-form" class="chat-input-row" autocomplete="off">
+        <input
+          id="chat-input"
+          type="text"
+          placeholder="Type a message..."
+          maxlength="2000"
+        />
+        <button id="chat-send-btn" type="submit" aria-label="Send message">
+          ➤
+        </button>
+      </form>
+    </section>
+
+    <!-- <script src="{% static 'js/swiggy.js' %}?v=20260817-4"></script> -->
+    <script src="{% static 'js/swiggy.js' %}"></script>
+  </body>
+</html>

@@ -1,0 +1,539 @@
+# Senior Python Developer Task — Analyze, Fix, and Upgrade the Existing AI Customer Support Chatbot
+
+Act as a **Senior Python Developer / Full-Stack AI Engineer with 10+ years of production experience**.
+
+You are working on an **existing Python AI customer-support chatbot project**. Your job is not to blindly rewrite the application. First, thoroughly inspect and understand the existing codebase, especially `main.py`, the current UI implementation, chatbot flow, thread/checkpoint management, image-upload functionality, and customer-support logic.
+
+The goal is to turn the existing application into a **stable, polished, interactive, production-quality AI customer-support chatbot with a modern web UI**, while preserving and improving the existing functionality.
+
+---
+
+## 1. First: Understand the Existing Project
+
+Before making changes:
+
+* Inspect the complete project structure.
+* Read and understand `main.py` and all important supporting files.
+* Identify the current framework and architecture.
+* Understand how the AI/chatbot is initialized.
+* Understand how conversations, threads, sessions, and checkpoints are currently handled.
+* Understand how messages are stored and retrieved.
+* Understand how image uploads are processed.
+* Understand how uploaded images are displayed.
+* Understand how customer-support requests are currently processed.
+* Identify frontend/UI components and their interaction with the backend.
+* Find existing bugs, incomplete implementations, duplicated logic, and unnecessary code.
+* Identify functionality that currently works and **do not break it unnecessarily**.
+
+Do not start by replacing everything.
+
+First build a clear understanding of how the current application works and then improve it systematically.
+
+---
+
+# 2. Main Objective
+
+Upgrade the existing application into a:
+
+* Modern AI customer-support chatbot
+* Interactive web application
+* Clean and responsive UI
+* Reliable conversation/thread management system
+* Proper checkpoint handling
+* Proper checkpoint deletion functionality
+* Smooth image-upload experience and alsomake it better look on ui/ux while chating
+* Correct image sizing and preview behavior
+* Clear customer-support workflow
+* Well-structured backend/frontend interaction
+* Developer-friendly terminal logging
+* Stable and maintainable Python implementation
+
+The final application should feel like a **real production customer-support chat application**, not a basic prototype.
+
+---
+
+# 3. Preserve the Existing `main.py` Functionality
+
+One of the most important requirements is to understand the existing `main.py`.
+
+Treat `main.py` as the **reference implementation for the application's intended functionality**.
+
+Analyze:
+
+* Every major function
+* AI/chatbot initialization
+* Prompt handling
+* User message processing
+* Asking image on Generator node when directly asking refund all of them
+* Tool/function calls
+* Thread handling
+* Checkpoints
+* Image processing
+* Customer-support logic
+* Error handling
+* Terminal output
+* Any state-management logic
+
+Then reproduce the required behavior correctly in the web UI.
+
+The web application should provide a **functional UI equivalent of the important behavior currently available through ****`main.py`**.
+
+Do not simply copy the code into frontend components.
+
+Instead:
+
+> Understand what `main.py` does, separate business logic from UI concerns where appropriate, and expose that functionality through a clean web interface.
+
+---
+
+# 4. Improve the Architecture Where Necessary
+
+Refactor the project only where it provides a clear benefit.
+
+Prefer a clean separation such as:
+
+```text
+Frontend / Web UI
+        ↓
+API / Application Layer
+        ↓
+Chatbot / AI Service
+        ↓
+Thread / Checkpoint Management
+        ↓
+Database / Persistence
+```
+
+Keep responsibilities separated.
+
+Avoid putting the entire application into one giant file.
+
+If the current project is already structured differently, adapt the architecture rather than introducing unnecessary complexity.
+
+---
+
+# 5. Modern AI Chat UI
+
+Create a polished and interactive chatbot interface.
+
+The UI should include:
+
+### Chat Area
+
+* User messages
+* AI messages
+* Clear message separation
+* Timestamps where useful
+* Loading states
+* Proper markdown rendering
+* Code-block rendering where applicable
+* Scroll-to-latest-message behavior
+* Smooth message updates
+* Error states
+* Retry functionality when appropriate
+
+### Message Composer
+
+Provide a modern input area with:
+
+* Text input
+* Send button
+* Clear attachment preview
+* Disabled/loading states
+* Proper validation
+
+The composer should remain usable while the conversation grows.
+
+---
+
+# 6. Image Uploading — Fix Size and UX Problems
+
+The current image-upload behavior needs to be carefully reviewed and improved.
+
+Handle:
+
+* Image selection
+* Image preview
+* Upload progress
+* Image dimensions
+* Maximum display dimensions
+* Responsive image sizing
+* Large images
+* Different aspect ratios
+* Portrait images
+* Landscape images
+* Square images
+* Invalid files
+* Oversized files
+* Upload failures
+* Removing an uploaded image before sending
+
+Do not allow an uploaded image to unexpectedly expand the chat UI.
+
+Use sensible constraints such as:
+
+```text
+max-width
+max-height
+object-fit
+responsive sizing
+thumbnail/preview behavior
+```
+
+The original image should remain accessible when appropriate, while the chat message should display a controlled preview.
+
+Avoid distorted images.
+
+---
+
+# 7. Checkpoint Handling
+
+Carefully inspect the existing checkpoint implementation.
+
+Understand exactly:
+
+* When checkpoints are created
+* What data they contain
+* How they are associated with threads
+* How they are retrieved
+* How conversation state is restored
+* How the latest checkpoint is identified
+* What happens when a thread is deleted
+* What happens when a checkpoint is missing or corrupted
+
+Fix any inconsistent or unsafe checkpoint behavior.
+
+Do not create duplicate checkpoints unnecessarily.
+
+Do not accidentally associate checkpoints with the wrong thread.
+
+Make sure restoring a conversation restores the expected state.and clearning checkpoint after refund on them 
+
+---
+
+# 10. Customer Support Functionality
+
+The customer-support chatbot itself must actually work.
+
+Review the existing customer-support functionality and identify:
+
+* What user problems it is designed to handle
+* What context the AI receives
+* What information is required
+* How responses are generated
+* How conversation context is maintained
+* How errors are handled
+* Whether the web UI correctly connects to the underlying support logic
+
+Improve the experience so the chatbot behaves like a real customer-support assistant.
+
+The UI should make it easy for users to:
+
+* Ask questions
+* Explain a problem
+* Upload supporting images
+* Continue previous conversations
+* Start a new support request
+* Review previous conversations
+* Receive clear AI responses
+
+Do not replace the existing customer-support logic with a fake/demo chatbot.
+
+Use the project's actual implementation wherever possible.
+
+---
+
+# 11. Web UI Should Properly Reflect `main.py`
+
+The web UI should expose the meaningful functionality currently available in `main.py`.
+
+For example, if `main.py` supports:
+
+* Conversation state
+* Streaming
+* Tools
+* Images
+* Checkpoints
+* Thread persistence
+* Customer-support workflows
+* Error handling
+
+then the web interface should provide the corresponding user experience.
+
+Think of the requirement as:
+
+> `main.py` = functional reference
+> Web UI = polished production interface for that functionality
+
+Do not create a disconnected frontend that only visually resembles the backend.
+
+---
+
+# 12. UI/UX Quality
+
+The UI should look modern and professional.
+
+Use a consistent design system.
+
+Make the interface:
+
+* Responsive
+* Clean
+* Modern
+* Accessible
+* Easy to navigate
+* Visually consistent
+* Comfortable for conversations and also the make using converstation wigid on themm
+
+Support both desktop and smaller screens where practical.
+
+---
+
+# 13. Different UI Interaction States
+
+Do not design only the "happy path."
+
+Implement visual states for:
+
+### Normal
+
+User can interact normally.
+
+### Sending
+
+Show that the message is being processed.
+
+### AI Generating
+
+Show an appropriate typing/streaming indicator.
+
+### Uploading
+
+Display image upload progress.
+
+### Upload Failed
+
+Clearly explain what went wrong and allow retry/removal.
+
+### Network/API Error
+
+Show a useful error instead of silently failing.
+
+### Empty Conversation
+
+Show a helpful welcome state.
+
+---
+
+# 14. Terminal Logging
+
+The application should also provide useful terminal output for developers.
+
+When users interact with the application, print meaningful logs to the terminal.
+
+For example: (how they getting termainal while uisng the main cli,simmillar implment them)
+
+```text
+[CHAT] New message received
+[CHAT] Thread ID: abc123
+[CHAT] User message processed
+[AI] Starting response generation
+[AI] Streaming response...
+[IMAGE] Upload received
+[IMAGE] Image validation successful
+[THREAD] Loading thread abc123
+[THREAD] Thread deleted
+[CHECKPOINT] Loading latest checkpoint
+[CHECKPOINT] Checkpoint restored
+[ERROR] Failed to process request
+```
+
+Make the terminal output:
+
+* Clean
+* Readable
+* Consistent
+* Useful for debugging
+* Easy to follow during development
+
+Avoid printing huge raw objects unless they are genuinely useful for debugging.
+
+Use appropriate log levels where possible:
+
+```text
+INFO
+DEBUG
+WARNING
+ERROR
+```
+
+Do not log sensitive information, API keys, passwords, tokens, or private user data.
+
+---
+
+# 15. Error Handling
+
+Review the entire application for weak error handling.
+
+Handle:
+
+* AI/API failures
+* Network errors
+* Invalid requests
+
+- Missing checkpoints
+- Database failures
+- Image upload failures
+- Unsupported image formats
+- Oversized images
+- Empty messages
+- Duplicate requests
+- Streaming interruptions
+- Thread deletion failures
+
+Errors should be:
+
+1. Logged on the backend.
+2. Presented clearly to the user.
+3. Recoverable when possible.
+
+Never expose internal stack traces or secrets directly in the production UI.
+
+---
+
+# 16. State Management
+
+Pay particular attention to state synchronization between:
+
+* Frontend
+* Backend
+* Active thread
+* Message history
+* Checkpoints
+* Upload state
+* AI generation state
+
+Avoid situations where:
+
+```text
+Frontend says thread exists
+but backend deleted it
+```
+
+or:
+
+```text
+Frontend shows old messages
+but backend has newer state
+```
+
+or:
+
+```text
+Deleted thread reappears after refresh
+```
+
+The frontend and backend must remain synchronized.
+
+---
+
+# 17. Performance
+
+Keep the application responsive.
+
+Pay attention to:
+
+* Large conversations
+* Large images
+* Streaming responses
+* Thread loading
+* Frequent rerenders
+* Unnecessary API requests
+* Duplicate requests
+* Memory usage
+* Large checkpoint data
+* Excessive terminal logging
+
+Do not introduce unnecessary dependencies or complexity.
+
+---
+
+# 18. Security
+
+Review the implementation for obvious security problems.
+
+Pay attention to:
+
+* File-upload validation
+* File size limits
+* Allowed image formats
+* User input handling
+* API credentials
+* Environment variables
+* Sensitive logs
+* Unsafe file paths
+* Arbitrary file access
+
+Never hardcode secrets.
+
+Use environment variables/configuration for credentials.
+
+---
+
+# 19. Code Quality
+
+As a senior developer, improve code quality where necessary.
+
+Look for:
+
+* Duplicate code
+* Dead code
+* Unused imports
+* Poor naming
+* Overly large functions
+* Hidden global state
+* Incorrect async/sync usage
+* Missing error handling
+* Tight coupling between UI and business logic
+* Repeated API calls
+* Incorrect state management
+
+Prefer:
+
+* Small focused functions
+* Clear naming
+* Type hints where useful
+* Reusable components
+* Clear service boundaries
+* Predictable state transitions
+* Maintainable code
+
+Do not over-engineer the project.
+
+---
+
+# 20. Do Not Break Existing Functionality
+
+This is critical.
+
+Before changing an existing feature:
+
+1. Understand how it currently works.
+2. Identify its intended behavior.
+3. Preserve working functionality.
+4. Improve the implementation only when necessary.
+5. Test the behavior after modification.
+
+Do not replace working logic simply because you prefer another implementation style.
+
+---
+
+# 26. Quality Standard
+
+It should feel like:
+
+> "The existing AI customer-support application was thoroughly understood, its broken functionality was fixed, its `main.py` behavior was correctly exposed through the web UI, thread/checkpoint persistence was made reliable, deletion was implemented correctly, image uploading was made responsive and stable, customer-support interactions were improved, and the overall application was turned into a polished, maintainable, production-quality chatbot."
+
+**Prioritize correctness and functionality first, then UI polish.**
+
+Do not sacrifice existing functionality for visual improvements.

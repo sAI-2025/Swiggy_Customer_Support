@@ -1,0 +1,113 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Swiggy Support</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=20260808-1" />
+  </head>
+  <body>
+    <header class="navbar">
+      <a class="brand" href="/" aria-label="Swiggy home">
+        <!-- <span class="brand-icon">●</span><span>Swiggy</span> -->
+        <img
+          src="{% static 'images/SWIGGY.png' %}"
+          alt="Swiggy"
+          style="width: 32px; height: 32px; object-fit: contain; display: block"
+        />
+        <span>Swiggy</span>
+      </a>
+      <nav>
+        <a href="#">Swiggy Corporate</a>
+        <a href="#">Partner with us</a>
+        <button class="outline-button" type="button">Get the App ↗</button>
+        <button class="dark-button" type="button">Sign in</button>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <img
+          src="{% static 'images/main_banner.png' %}"
+          alt="Food delivery"
+          class="full-image"
+        />
+      </section>
+      <section class="content-section">
+        <img
+          src="{% static 'images/restaruents.png' %}"
+          alt="Restaurants"
+          class="full-image rounded"
+        />
+        <img
+          src="{% static 'images/items.png' %}"
+          alt="Food items"
+          class="full-image rounded"
+        />
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-grid">
+        <div>© 2026 Swiggy Limited</div>
+        <div>
+          <h3>Company</h3>
+          <a href="#">About Us</a><a href="#">Careers</a
+          ><a href="#">Swiggy Corporate</a>
+        </div>
+        <div>
+          <h3>Contact us</h3>
+          <a href="#">Help &amp; Support</a><a href="#">Partner With Us</a
+          ><a href="#">Ride With Us</a>
+        </div>
+        <div>
+          <h3>Available in:</h3>
+          <span>Bangalore</span><span>Gurgaon</span><span>Hyderabad</span
+          ><span>Delhi</span><span>Mumbai</span><span>Pune</span>
+        </div>
+      </div>
+    </footer>
+
+    <button id="chat-toggle-btn" type="button" aria-label="Open support chat">
+      💬
+    </button>
+
+    <section id="chat-window" aria-label="Swiggy Support chat">
+      <header class="chat-header">
+        <div class="chat-agent">
+          <span class="chat-avatar">🛵</span>
+          <div><strong>Swiggy Support</strong><small>● Online</small></div>
+        </div>
+        <div class="chat-header-actions">
+          <button
+            id="chat-new-btn"
+            type="button"
+            title="Start a new conversation"
+          >
+            New
+          </button>
+          <button id="chat-close" type="button" aria-label="Close chat">
+            ×
+          </button>
+        </div>
+      </header>
+
+      <div id="chat-body" class="chat-body" aria-live="polite"></div>
+
+      <form id="chat-form" class="chat-input-row" autocomplete="off">
+        <input
+          id="chat-input"
+          type="text"
+          placeholder="Type a message..."
+          maxlength="2000"
+        />
+        <button id="chat-send-btn" type="submit" aria-label="Send message">
+          ➤
+        </button>
+      </form>
+    </section>
+
+    <script src="{% static 'js/chat.js' %}?v=20260808-1"></script>
+  </body>
+</html>
